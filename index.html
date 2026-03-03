@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Professional Barcode Scanner</title>
+<title>True Box Barcode Scanner</title>
 
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
@@ -22,68 +22,34 @@ h2{margin:10px 0;}
 button{
     padding:8px 15px;
     margin:6px;
-    font-size:14px;
 }
 
-#container{
-    position:relative;
-    width:100%;
-    max-width:420px;
-    height:260px;
+#reader{
+    width:320px;
+    height:180px;
     margin:auto;
-    overflow:hidden;
-    border-radius:12px;
-}
-
-video{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-}
-
-/* Dark outside */
-#overlay{
-    position:absolute;
-    width:100%;
-    height:100%;
-    pointer-events:none;
-}
-
-#overlay:before{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:85%;
-    height:120px;
-    transform:translate(-50%,-50%);
-    box-shadow:0 0 0 2000px rgba(0,0,0,0.7);
-    border-radius:12px;
-}
-
-/* Green frame */
-#frame{
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:85%;
-    height:120px;
-    transform:translate(-50%,-50%);
     border:3px solid #00ff00;
     border-radius:12px;
+    position:relative;
     overflow:hidden;
+}
+
+/* Hide default border */
+#reader > div{
+    border:none !important;
 }
 
 /* Scan line */
-#scan-line{
+.scan-line{
     position:absolute;
     width:100%;
     height:3px;
     background:red;
-    animation:scanMove 2s infinite linear;
+    animation:move 2s infinite linear;
+    z-index:10;
 }
 
-@keyframes scanMove{
+@keyframes move{
     0%{top:10%;}
     50%{top:85%;}
     100%{top:10%;}
@@ -92,14 +58,11 @@ video{
 #result{
     margin-top:8px;
     color:yellow;
-    font-size:16px;
-    word-break:break-all;
 }
 
-/* Table */
 table{
     width:100%;
-    max-width:420px;
+    max-width:320px;
     margin:15px auto;
     border-collapse:collapse;
     background:white;
@@ -122,12 +85,8 @@ th,td{
 <button onclick="stopScan()">Stop</button>
 <button onclick="downloadExcel()">Download Excel</button>
 
-<div id="container">
-    <video id="video"></video>
-    <div id="overlay"></div>
-    <div id="frame">
-        <div id="scan-line"></div>
-    </div>
+<div id="reader">
+    <div class="scan-line" id="scanLine"></div>
 </div>
 
 <div id="result">Scanned: -</div>
@@ -142,71 +101,61 @@ th,td{
 
 <script>
 
-let codeReader = new ZXing.BrowserMultiFormatReader();
-let scanning=false;
+let html5Qr;
 let scannedSet=new Set();
 let scannedData=[];
 let serial=1;
 let cooldown=false;
 
-async function startScan(){
+function startScan(){
 
-    if(scanning) return;
-    scanning=true;
+    html5Qr=new Html5Qrcode("reader");
 
-    const constraints={
-        video:{ facingMode:{ ideal:"environment"}}
-    };
+    html5Qr.start(
+        { facingMode: "environment" },
+        {
+            fps: 20,
+            qrbox: { width: 280, height: 120 } // REAL scan area
+        },
+        (decodedText)=>{
 
-    codeReader.decodeFromConstraints(
-        constraints,
-        "video",
-        (result,err)=>{
+            if(scannedSet.has(decodedText) || cooldown) return;
 
-            if(result && !cooldown){
+            scannedSet.add(decodedText);
+            cooldown=true;
 
-                let text=result.text;
+            document.getElementById("result").innerText=
+            "Scanned: "+decodedText;
 
-                if(scannedSet.has(text)) return;
+            // Flash green
+            let line=document.getElementById("scanLine");
+            line.style.background="lime";
+            setTimeout(()=>{
+                line.style.background="red";
+                cooldown=false;
+            },600);
 
-                scannedSet.add(text);
-                cooldown=true;
+            // Add to list
+            let table=document.getElementById("scanTable");
+            let row=table.insertRow(-1);
+            row.insertCell(0).innerHTML=serial;
+            row.insertCell(1).innerHTML=decodedText;
 
-                // Show scanned
-                document.getElementById("result").innerText="Scanned: "+text;
+            scannedData.push({
+                "S.No":serial,
+                "Barcode":decodedText
+            });
 
-                // Flash green
-                let line=document.getElementById("scan-line");
-                line.style.background="lime";
-                setTimeout(()=>{
-                    line.style.background="red";
-                    cooldown=false;
-                },600);
-
-                // Add to list
-                let table=document.getElementById("scanTable");
-                let row=table.insertRow(-1);
-                row.insertCell(0).innerHTML=serial;
-                row.insertCell(1).innerHTML=text;
-
-                scannedData.push({
-                    "S.No":serial,
-                    "Barcode":text
-                });
-
-                serial++;
-            }
+            serial++;
         }
     );
 }
 
 function stopScan(){
-    codeReader.reset();
-    scanning=false;
+    if(html5Qr) html5Qr.stop();
 }
 
 function downloadExcel(){
-
     let ws=XLSX.utils.json_to_sheet(scannedData);
     let wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"Barcodes");
