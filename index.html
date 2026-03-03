@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Custom Frame Scanner</title>
+    <title>Phone Optimized Scanner</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -11,60 +11,106 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
     <style>
-        :root { --blue: #007AFF; --green: #32D74B; --red: #FF453A; }
-        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        :root {
+            --blue: #007AFF;
+            --green: #32D74B;
+            --red: #FF453A;
+            /* iPhone notch aur home bar handling */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+        }
 
-        /* Camera Area */
-        #scanner-container { position: relative; width: 100%; height: 50vh; background: #000; border-bottom: 2px solid #333; touch-action: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            /* Screen size fix */
+            height: 100vh;
+            height: 100dvh; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 1. Camera Section - Fixed Height */
+        #scanner-container {
+            position: relative;
+            width: 100%;
+            height: 40%; /* Camera occupies 40% of screen */
+            background: #000;
+            margin-top: var(--safe-top);
+            border-bottom: 2px solid #333;
+            touch-action: none;
+        }
+
         #reader { width: 100% !important; height: 100% !important; }
 
-        /* Adjustable Box UI */
-        #custom-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.6); }
-        
+        /* Adjustable Box */
         #resizable-box {
-            position: absolute; border: 2px solid var(--blue); z-index: 11;
-            top: 100px; left: 50px; width: 250px; height: 100px; /* Default Size */
-            box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6); /* High-tech masking */
+            position: absolute;
+            border: 2px solid var(--blue);
+            z-index: 11;
+            top: 25%; left: 15%; width: 70%; height: 50%;
+            box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6);
             display: flex; align-items: center; justify-content: center;
         }
 
         #red-line { width: 100%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); }
 
-        /* Draggable Corners */
         .corner {
-            position: absolute; width: 30px; height: 30px; background: var(--blue);
-            border-radius: 50%; border: 3px solid white; z-index: 15; pointer-events: auto;
+            position: absolute; width: 35px; height: 35px; background: var(--blue);
+            border-radius: 50%; border: 3px solid white; z-index: 15;
         }
-        #tl { top: -15px; left: -15px; cursor: nw-resize; }
-        #tr { top: -15px; right: -15px; cursor: ne-resize; }
-        #bl { bottom: -15px; left: -15px; cursor: sw-resize; }
-        #br { bottom: -15px; right: -15px; cursor: se-resize; }
+        #tl { top: -17px; left: -17px; }
+        #br { bottom: -17px; right: -17px; }
 
-        /* UI Controls */
-        .controls { display: flex; gap: 10px; padding: 10px; background: #1c1c1e; z-index: 20; }
-        button { flex: 1; height: 45px; border: none; border-radius: 10px; font-weight: bold; color: #fff; }
+        /* 2. Controls Section */
+        .controls {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            background: #1c1c1e;
+        }
+
+        button {
+            flex: 1;
+            height: 48px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #fff;
+        }
         #start-btn { background: var(--green); color: #000; }
         #stop-btn { background: var(--red); }
         #xl-btn { background: var(--blue); }
 
-        /* Result List */
-        .list-area { flex: 1; overflow-y: auto; background: #000; }
+        /* 3. List Section - Scrollable */
+        .list-area {
+            flex: 1;
+            overflow-y: auto;
+            background: #000;
+            padding-bottom: var(--safe-bottom); /* Home bar gap */
+        }
+
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #121212; padding: 10px; color: #888; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #222; text-align: center; }
-        .thumb { width: 80px; height: 40px; object-fit: cover; border-radius: 4px; background: #fff; }
+        th { background: #121212; padding: 12px; color: #888; text-align: left; position: sticky; top: 0; }
+        td { padding: 10px; border-bottom: 1px solid #222; vertical-align: middle; text-align: center;}
+        
+        .thumb { width: 70px; height: 40px; object-fit: cover; border-radius: 4px; background: #fff; }
     </style>
 </head>
 <body>
 
     <div id="scanner-container">
         <div id="reader"></div>
-        
         <div id="resizable-box">
             <div id="red-line"></div>
             <div class="corner" id="tl"></div>
-            <div class="corner" id="tr"></div>
-            <div class="corner" id="bl"></div>
             <div class="corner" id="br"></div>
         </div>
     </div>
@@ -81,8 +127,8 @@
                 <tr>
                     <th>SNo</th>
                     <th>Value</th>
-                    <th>Cropped Photo</th>
-                    <th>CODE128</th>
+                    <th>Capture</th>
+                    <th>Barcode</th>
                 </tr>
             </thead>
             <tbody id="log-body"></tbody>
@@ -98,37 +144,42 @@
         let isLocked = false;
         const box = document.getElementById('resizable-box');
 
-        // --- CORNER DRAGGING LOGIC ---
+        // Draggable Logic (Multi-touch safe)
         let currentCorner = null;
-        document.querySelectorAll('.corner').forEach(corner => {
-            corner.addEventListener('touchstart', (e) => { currentCorner = e.target.id; e.stopPropagation(); });
+        const corners = document.querySelectorAll('.corner');
+        
+        corners.forEach(c => {
+            c.addEventListener('touchstart', (e) => { 
+                currentCorner = e.target.id; 
+                e.preventDefault(); 
+            }, {passive: false});
         });
 
         document.addEventListener('touchmove', (e) => {
             if (!currentCorner) return;
             const touch = e.touches[0];
             const container = document.getElementById('scanner-container').getBoundingClientRect();
+            
             const x = touch.clientX - container.left;
             const y = touch.clientY - container.top;
 
-            let rect = box.getBoundingClientRect();
-            let parentRect = document.getElementById('scanner-container').getBoundingClientRect();
-
             if (currentCorner === 'br') {
-                box.style.width = (x - (rect.left - parentRect.left)) + 'px';
-                box.style.height = (y - (rect.top - parentRect.top)) + 'px';
+                box.style.width = Math.max(50, x - box.offsetLeft) + 'px';
+                box.style.height = Math.max(30, y - box.offsetTop) + 'px';
             } else if (currentCorner === 'tl') {
-                const newWidth = rect.right - parentRect.left - x;
-                const newHeight = rect.bottom - parentRect.top - y;
-                box.style.left = x + 'px'; box.style.top = y + 'px';
-                box.style.width = newWidth + 'px'; box.style.height = newHeight + 'px';
+                const newW = box.offsetLeft + box.offsetWidth - x;
+                const newH = box.offsetTop + box.offsetHeight - y;
+                if(newW > 50 && newH > 30) {
+                    box.style.left = x + 'px';
+                    box.style.top = y + 'px';
+                    box.style.width = newW + 'px';
+                    box.style.height = newH + 'px';
+                }
             }
-            // Logic for other corners can be added similarly, but TL and BR are enough for resizing.
-        });
+        }, {passive: false});
 
-        document.addEventListener('touchend', () => { currentCorner = null; });
+        document.addEventListener('touchend', () => currentCorner = null);
 
-        // --- SCANNING & CROPPING ---
         async function onScan(text) {
             if (isLocked || scans.some(s => s.val === text)) return;
             isLocked = true;
@@ -137,27 +188,25 @@
             const canvas = document.getElementById('crop-cvs');
             const ctx = canvas.getContext('2d');
 
-            // Map UI Box to Video Resolution
             const vW = video.videoWidth; const vH = video.videoHeight;
-            const uiW = document.getElementById('scanner-container').clientWidth;
-            const uiH = document.getElementById('scanner-container').clientHeight;
-            
+            const container = document.getElementById('scanner-container');
+            const scaleX = vW / container.offsetWidth;
+            const scaleY = vH / container.offsetHeight;
+
             const rect = box.getBoundingClientRect();
-            const parentRect = document.getElementById('scanner-container').getBoundingClientRect();
+            const contRect = container.getBoundingClientRect();
 
-            const scaleX = vW / uiW; const scaleY = vH / uiH;
-            const cropX = (rect.left - parentRect.left) * scaleX;
-            const cropY = (rect.top - parentRect.top) * scaleY;
-            const cropW = rect.width * scaleX;
-            const cropH = rect.height * scaleY;
+            const cX = (rect.left - contRect.left) * scaleX;
+            const cY = (rect.top - contRect.top) * scaleY;
+            const cW = rect.width * scaleX;
+            const cH = rect.height * scaleY;
 
-            canvas.width = cropW; canvas.height = cropH;
-            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-            const photo = canvas.toDataURL('image/jpeg', 0.8);
-
-            // Barcode Gen
+            canvas.width = cW; canvas.height = cH;
+            ctx.drawImage(video, cX, cY, cW, cH, 0, 0, cW, cH);
+            
+            const photo = canvas.toDataURL('image/jpeg', 0.7);
             const barCvs = document.getElementById('bar-cvs');
-            JsBarcode(barCvs, text, { format: "CODE128", width: 4, height: 60, displayValue: true });
+            JsBarcode(barCvs, text, { format: "CODE128", width: 2, height: 40, displayValue: true });
             const barImg = barCvs.toDataURL('image/png');
 
             const entry = { sno: scans.length + 1, val: text, photo: photo, bar: barImg };
@@ -165,41 +214,43 @@
 
             const row = `<tr>
                 <td>${entry.sno}</td>
-                <td style="font-weight:bold">${entry.val}</td>
+                <td style="word-break:break-all"><b>${entry.val}</b></td>
                 <td><img src="${photo}" class="thumb"></td>
                 <td><img src="${barImg}" class="thumb"></td>
             </tr>`;
             document.getElementById('log-body').insertAdjacentHTML('afterbegin', row);
+
+            // iPhone Haptic Feedback (Vibration)
+            if (navigator.vibrate) navigator.vibrate(50);
 
             setTimeout(() => { isLocked = false; }, 1500);
         }
 
         async function start() {
             scanner = new Html5Qrcode("reader");
-            // Set dynamic qrbox based on adjustable frame
-            const config = { 
-                fps: 25, 
-                qrbox: (w, h) => {
-                    const rect = box.getBoundingClientRect();
-                    return { width: rect.width * 0.8, height: rect.height * 0.8 };
-                }
-            };
-            await scanner.start({ facingMode: "environment" }, config, onScan);
+            await scanner.start({ facingMode: "environment" }, { 
+                fps: 20, 
+                qrbox: (w, h) => ({ width: w*0.8, height: h*0.4 }) 
+            }, onScan);
             document.getElementById('start-btn').disabled = true;
             document.getElementById('stop-btn').disabled = false;
         }
 
-        async function stop() { await scanner.stop(); document.getElementById('start-btn').disabled = false; document.getElementById('stop-btn').disabled = true; }
+        async function stop() { 
+            await scanner.stop(); 
+            document.getElementById('start-btn').disabled = false; 
+            document.getElementById('stop-btn').disabled = true; 
+        }
 
         async function exportXL() {
             const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Scans');
-            ws.columns = [{header:'SNo',key:'sno'},{header:'Value',key:'val'},{header:'Photo',key:'p'},{header:'Bar',key:'b'}];
+            ws.columns = [{header:'SNo',key:'sno',width:5},{header:'Value',key:'val',width:20},{header:'Photo',key:'p',width:20},{header:'Bar',key:'b',width:20}];
             for (const s of scans) {
-                const row = ws.addRow({sno:s.sno, val:s.val}); row.height = 80;
-                ws.addImage(wb.addImage({base64:s.photo, extension:'jpeg'}), {tl:{col:2,row:row.number-1}, ext:{width:150,height:70}});
-                ws.addImage(wb.addImage({base64:s.bar, extension:'png'}), {tl:{col:3,row:row.number-1}, ext:{width:150,height:70}});
+                const row = ws.addRow({sno:s.sno, val:s.val}); row.height = 60;
+                ws.addImage(wb.addImage({base64:s.photo, extension:'jpeg'}), {tl:{col:2,row:row.number-1}, ext:{width:120,height:50}});
+                ws.addImage(wb.addImage({base64:s.bar, extension:'png'}), {tl:{col:3,row:row.number-1}, ext:{width:120,height:50}});
             }
-            saveAs(new Blob([await wb.xlsx.writeBuffer()]), "Adjustable_Scan.xlsx");
+            saveAs(new Blob([await wb.xlsx.writeBuffer()]), "Scans_Fixed.xlsx");
         }
 
         document.getElementById('start-btn').onclick = start;
