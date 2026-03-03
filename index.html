@@ -2,94 +2,35 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Serial Barcode Scanner</title>
+<title>Barcode Scanner with Image Excel</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <style>
 body { font-family: Arial; text-align:center; background:#111; color:white; }
-
-#container { position:relative; display:inline-block; }
-
-video { width:360px; border-radius:10px; }
-
-#frame {
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:280px;
-    height:140px;
-    transform:translate(-50%,-50%);
-    border:3px solid #00ff00;
-    border-radius:10px;
-}
-
-#scan-line {
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:280px;
-    height:2px;
-    background:#00ff00;
-    animation:move 2s infinite;
-}
-
-@keyframes move {
-    0% { transform:translate(-50%,-60px); }
-    50% { transform:translate(-50%,60px); }
-    100% { transform:translate(-50%,-60px); }
-}
-
-table {
-    margin:20px auto;
-    border-collapse:collapse;
-    background:white;
-    color:black;
-}
-
-th, td {
-    border:1px solid black;
-    padding:6px 12px;
-}
-
-button {
-    padding:10px 20px;
-    margin:10px;
-    font-weight:bold;
-}
+video { width:360px; border-radius:10px; border:3px solid #00ff00; }
+canvas { display:none; }
+button { padding:10px 20px; margin:10px; font-weight:bold; }
 </style>
 </head>
 
 <body>
 
-<h2>📷 Serial Order Barcode Scanner</h2>
+<h2>📷 Barcode Scanner → Excel (With Image)</h2>
 
-<div id="container">
-    <video id="video"></video>
-    <div id="frame"></div>
-    <div id="scan-line"></div>
-</div>
+<video id="video"></video>
+<canvas id="barcodeCanvas"></canvas>
 
-<h3>Scanned List (Website Order)</h3>
-
-<table id="table">
-<tr>
-<th>Order</th>
-<th>Barcode</th>
-<th>Date</th>
-<th>Time</th>
-</tr>
-</table>
-
+<br>
 <button onclick="downloadExcel()">Download Excel</button>
 
 <script>
 
 let codeReader = new ZXing.BrowserMultiFormatReader();
-let order = 1;
+let scannedData = [];
 let scannedSet = new Set();
-let scannedArray = [];
 let cooldown = false;
 
 codeReader.listVideoInputDevices().then(videoInputDevices => {
@@ -105,47 +46,66 @@ codeReader.listVideoInputDevices().then(videoInputDevices => {
             scannedSet.add(text);
             cooldown = true;
 
-            let now = new Date();
-            let date = now.toLocaleDateString();
-            let time = now.toLocaleTimeString();
-
-            // Website display order
-            let table = document.getElementById("table");
-            let row = table.insertRow(-1);
-            row.insertCell(0).innerHTML = order;
-            row.insertCell(1).innerHTML = text;
-            row.insertCell(2).innerHTML = date;
-            row.insertCell(3).innerHTML = time;
-
-            // Store without serial (Excel me fresh numbering hoga)
-            scannedArray.push({
-                "Barcode": text,
-                "Date": date,
-                "Time": time
+            // Generate barcode image
+            let canvas = document.getElementById("barcodeCanvas");
+            JsBarcode(canvas, text, {
+                format: "CODE128",
+                width: 2,
+                height: 60,
+                displayValue: false
             });
 
-            order++;
+            let imageBase64 = canvas.toDataURL("image/png");
+
+            scannedData.push({
+                value: text,
+                image: imageBase64
+            });
 
             setTimeout(() => cooldown = false, 1200);
         }
     });
 });
 
-function downloadExcel() {
+async function downloadExcel() {
 
-    // Excel me fresh serial numbering
-    let excelData = scannedArray.map((item, index) => ({
-        "S.No": index + 1,
-        "Barcode": item.Barcode,
-        "Date": item.Date,
-        "Time": item.Time
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Barcodes");
 
-    let ws = XLSX.utils.json_to_sheet(excelData);
-    let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
+    sheet.columns = [
+        { header: "S.No", key: "sno", width: 10 },
+        { header: "Barcode Value", key: "value", width: 25 },
+        { header: "Barcode Image", key: "image", width: 30 }
+    ];
 
-    XLSX.writeFile(wb, "Final_Serial_Barcodes.xlsx");
+    for (let i = 0; i < scannedData.length; i++) {
+
+        let rowNumber = i + 2;
+
+        sheet.addRow({
+            sno: i + 1,
+            value: scannedData[i].value
+        });
+
+        const imageId = workbook.addImage({
+            base64: scannedData[i].image,
+            extension: 'png',
+        });
+
+        sheet.addImage(imageId, {
+            tl: { col: 2, row: rowNumber - 1 },
+            ext: { width: 200, height: 70 }
+        });
+
+        sheet.getRow(rowNumber).height = 60;
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Barcode_With_Image.xlsx";
+    link.click();
 }
 
 </script>
