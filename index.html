@@ -19,10 +19,6 @@ body {
     padding:10px;
 }
 
-h2 {
-    font-size: 20px;
-}
-
 #container {
     position: relative;
     width: 100%;
@@ -52,8 +48,6 @@ video {
     height: 3px;
     background: red;
     left: 50%;
-    top: 50%;
-    transform: translateX(-50%);
     animation: scanMove 2s infinite linear;
 }
 
@@ -63,9 +57,9 @@ video {
     100% { top: 35%; }
 }
 
-button, select {
+button {
     padding: 8px 12px;
-    margin: 5px;
+    margin: 8px;
     font-size: 14px;
 }
 
@@ -86,7 +80,6 @@ canvas {
 
 <h2>📷 Barcode Scanner</h2>
 
-<select id="cameraSelect"></select><br>
 <button onclick="startScan()">Start</button>
 <button onclick="stopScan()">Stop</button>
 <button onclick="downloadExcel()">Download Excel</button>
@@ -107,76 +100,60 @@ let codeReader = new ZXing.BrowserMultiFormatReader();
 let scannedData = [];
 let scannedSet = new Set();
 let cooldown = false;
-let selectedDeviceId = null;
 let scanning = false;
-
-// Load Cameras
-async function loadCameras() {
-    const devices = await codeReader.listVideoInputDevices();
-    const select = document.getElementById("cameraSelect");
-
-    devices.forEach(device => {
-        const option = document.createElement("option");
-        option.value = device.deviceId;
-        option.text = device.label || "Camera";
-        select.appendChild(option);
-    });
-
-    if (devices.length > 0) {
-        selectedDeviceId = devices[0].deviceId;
-    }
-
-    select.onchange = function() {
-        selectedDeviceId = this.value;
-    };
-}
-loadCameras();
 
 async function startScan() {
 
     if (scanning) return;
-    if (!selectedDeviceId) return alert("No camera found");
 
     scanning = true;
 
-    codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
-        if (result && !cooldown) {
+    // Force back camera
+    const constraints = {
+        video: { facingMode: { exact: "environment" } }
+    };
 
-            let text = result.text;
+    codeReader.decodeFromConstraints(
+        constraints,
+        "video",
+        (result, err) => {
+            if (result && !cooldown) {
 
-            if (scannedSet.has(text)) return;
+                let text = result.text;
 
-            scannedSet.add(text);
-            cooldown = true;
+                if (scannedSet.has(text)) return;
 
-            // Show scanned number on screen
-            document.getElementById("resultBox").innerText =
-                "Scanned Barcode: " + text;
+                scannedSet.add(text);
+                cooldown = true;
 
-            // Line turns green
-            let line = document.getElementById("scan-line");
-            line.style.background = "lime";
+                document.getElementById("resultBox").innerText =
+                    "Scanned Barcode: " + text;
 
-            setTimeout(() => {
-                line.style.background = "red";
-                cooldown = false;
-            }, 800);
+                // Line green on scan
+                let line = document.getElementById("scan-line");
+                line.style.background = "lime";
 
-            // Generate image for Excel
-            let canvas = document.getElementById("barcodeCanvas");
-            JsBarcode(canvas, text, {
-                format: "CODE128",
-                width: 2,
-                height: 60,
-                displayValue: true
-            });
+                setTimeout(() => {
+                    line.style.background = "red";
+                    cooldown = false;
+                }, 800);
 
-            scannedData.push({
-                value: text,
-                image: canvas.toDataURL("image/png")
-            });
+                // Generate barcode image
+                let canvas = document.getElementById("barcodeCanvas");
+                JsBarcode(canvas, text, {
+                    format: "CODE128",
+                    width: 2,
+                    height: 60,
+                    displayValue: true
+                });
+
+                scannedData.push({
+                    value: text,
+                    image: canvas.toDataURL("image/png")
+                });
+            }
         }
-    });
+    );
 }
 
 function stopScan() {
