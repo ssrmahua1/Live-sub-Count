@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>True Box Barcode Scanner</title>
+<title>Full Professional Barcode Scanner</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -22,19 +22,26 @@ h2{margin:10px 0;}
 button{
     padding:8px 15px;
     margin:6px;
+    font-size:14px;
 }
 
-#reader{
+#scanner-container{
+    position:relative;
     width:320px;
     height:180px;
     margin:auto;
     border:3px solid #00ff00;
     border-radius:12px;
-    position:relative;
     overflow:hidden;
 }
 
-/* Hide default border */
+/* Scanner Area */
+#reader{
+    width:100%;
+    height:100%;
+}
+
+/* Remove default border */
 #reader > div{
     border:none !important;
 }
@@ -58,8 +65,11 @@ button{
 #result{
     margin-top:8px;
     color:yellow;
+    font-size:15px;
+    word-break:break-all;
 }
 
+/* Table */
 table{
     width:100%;
     max-width:320px;
@@ -79,13 +89,14 @@ th,td{
 
 <body>
 
-<h2>📷 Barcode Scanner</h2>
+<h2>📷 Professional Barcode Scanner</h2>
 
 <button onclick="startScan()">Start</button>
 <button onclick="stopScan()">Stop</button>
 <button onclick="downloadExcel()">Download Excel</button>
 
-<div id="reader">
+<div id="scanner-container">
+    <div id="reader"></div>
     <div class="scan-line" id="scanLine"></div>
 </div>
 
@@ -106,16 +117,20 @@ let scannedSet=new Set();
 let scannedData=[];
 let serial=1;
 let cooldown=false;
+let scanning=false;
 
 function startScan(){
+
+    if(scanning) return;
+    scanning=true;
 
     html5Qr=new Html5Qrcode("reader");
 
     html5Qr.start(
-        { facingMode: "environment" },
+        { facingMode:"environment" },
         {
-            fps: 20,
-            qrbox: { width: 280, height: 120 } // REAL scan area
+            fps:20,
+            qrbox:{ width:280, height:120 }
         },
         (decodedText)=>{
 
@@ -124,10 +139,11 @@ function startScan(){
             scannedSet.add(decodedText);
             cooldown=true;
 
+            // Show result
             document.getElementById("result").innerText=
             "Scanned: "+decodedText;
 
-            // Flash green
+            // Flash green line
             let line=document.getElementById("scanLine");
             line.style.background="lime";
             setTimeout(()=>{
@@ -135,7 +151,7 @@ function startScan(){
                 cooldown=false;
             },600);
 
-            // Add to list
+            // Add to website list
             let table=document.getElementById("scanTable");
             let row=table.insertRow(-1);
             row.insertCell(0).innerHTML=serial;
@@ -152,7 +168,11 @@ function startScan(){
 }
 
 function stopScan(){
-    if(html5Qr) html5Qr.stop();
+    if(html5Qr){
+        html5Qr.stop().then(()=>{
+            scanning=false;
+        });
+    }
 }
 
 function downloadExcel(){
