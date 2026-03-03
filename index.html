@@ -2,81 +2,68 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Green Line Barcode Scanner</title>
+<title>Serial Barcode Scanner</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #111;
-    color: white;
-}
+body { font-family: Arial; text-align:center; background:#111; color:white; }
 
-#container {
-    position: relative;
-    display: inline-block;
-}
+#container { position:relative; display:inline-block; }
 
-video {
-    width: 360px;
-    border-radius: 10px;
-}
+video { width:360px; border-radius:10px; }
 
 #frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 280px;
-    height: 140px;
-    transform: translate(-50%, -50%);
-    border: 3px solid #00ff00;
-    border-radius: 10px;
-    box-sizing: border-box;
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:280px;
+    height:140px;
+    transform:translate(-50%,-50%);
+    border:3px solid #00ff00;
+    border-radius:10px;
 }
 
 #scan-line {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 280px;
-    height: 2px;
-    background: #00ff00;
-    transform: translate(-50%, -50%);
-    animation: scanMove 2s infinite;
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:280px;
+    height:2px;
+    background:#00ff00;
+    animation:move 2s infinite;
 }
 
-@keyframes scanMove {
-    0% { transform: translate(-50%, -70px); }
-    50% { transform: translate(-50%, 70px); }
-    100% { transform: translate(-50%, -70px); }
+@keyframes move {
+    0% { transform:translate(-50%,-60px); }
+    50% { transform:translate(-50%,60px); }
+    100% { transform:translate(-50%,-60px); }
 }
 
 table {
-    margin: 20px auto;
-    border-collapse: collapse;
-    background: white;
-    color: black;
+    margin:20px auto;
+    border-collapse:collapse;
+    background:white;
+    color:black;
 }
 
 th, td {
-    border: 1px solid black;
-    padding: 6px 12px;
+    border:1px solid black;
+    padding:6px 12px;
 }
 
 button {
-    padding: 10px 20px;
-    margin: 10px;
-    font-weight: bold;
+    padding:10px 20px;
+    margin:10px;
+    font-weight:bold;
 }
 </style>
 </head>
 
 <body>
 
-<h2>⚡ Green Line Barcode Scanner</h2>
+<h2>📷 Serial Order Barcode Scanner</h2>
 
 <div id="container">
     <video id="video"></video>
@@ -84,11 +71,11 @@ button {
     <div id="scan-line"></div>
 </div>
 
-<h3>Scanned Data</h3>
+<h3>Scanned List (Website Order)</h3>
 
 <table id="table">
 <tr>
-<th>S.No</th>
+<th>Order</th>
 <th>Barcode</th>
 <th>Date</th>
 <th>Time</th>
@@ -98,8 +85,9 @@ button {
 <button onclick="downloadExcel()">Download Excel</button>
 
 <script>
+
 let codeReader = new ZXing.BrowserMultiFormatReader();
-let serial = 1;
+let order = 1;
 let scannedSet = new Set();
 let scannedArray = [];
 let cooldown = false;
@@ -121,33 +109,45 @@ codeReader.listVideoInputDevices().then(videoInputDevices => {
             let date = now.toLocaleDateString();
             let time = now.toLocaleTimeString();
 
+            // Website display order
+            let table = document.getElementById("table");
+            let row = table.insertRow(-1);
+            row.insertCell(0).innerHTML = order;
+            row.insertCell(1).innerHTML = text;
+            row.insertCell(2).innerHTML = date;
+            row.insertCell(3).innerHTML = time;
+
+            // Store without serial (Excel me fresh numbering hoga)
             scannedArray.push({
-                "S.No": serial,
                 "Barcode": text,
                 "Date": date,
                 "Time": time
             });
 
-            let table = document.getElementById("table");
-            let row = table.insertRow();
-            row.insertCell(0).innerHTML = serial;
-            row.insertCell(1).innerHTML = text;
-            row.insertCell(2).innerHTML = date;
-            row.insertCell(3).innerHTML = time;
+            order++;
 
-            serial++;
-
-            setTimeout(() => cooldown = false, 10);
+            setTimeout(() => cooldown = false, 1200);
         }
     });
 });
 
 function downloadExcel() {
-    let ws = XLSX.utils.json_to_sheet(scannedArray);
+
+    // Excel me fresh serial numbering
+    let excelData = scannedArray.map((item, index) => ({
+        "S.No": index + 1,
+        "Barcode": item.Barcode,
+        "Date": item.Date,
+        "Time": item.Time
+    }));
+
+    let ws = XLSX.utils.json_to_sheet(excelData);
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
-    XLSX.writeFile(wb, "Green_Line_Scanned_Barcodes.xlsx");
+
+    XLSX.writeFile(wb, "Final_Serial_Barcodes.xlsx");
 }
+
 </script>
 
 </body>
