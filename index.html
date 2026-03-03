@@ -3,90 +3,113 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Barcode Scanner</title>
+<title>Professional Barcode Scanner</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #111;
-    color: white;
+body{
     margin:0;
-    padding:10px;
+    background:#111;
+    color:white;
+    font-family:Arial;
+    text-align:center;
 }
 
-#container {
-    position: relative;
-    width: 100%;
-    max-width: 420px;
-    margin: auto;
+h2{margin:10px 0;}
+
+button{
+    padding:8px 15px;
+    margin:6px;
+    font-size:14px;
 }
 
-video {
-    width: 100%;
-    border-radius: 10px;
+#container{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    height:260px;
+    margin:auto;
+    overflow:hidden;
+    border-radius:12px;
 }
 
-#frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 80%;
-    height: 120px;
-    transform: translate(-50%, -50%);
-    border: 3px solid #00ff00;
-    border-radius: 12px;
-    overflow: hidden;
+video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
 }
 
-#scan-line {
-    position: absolute;
-    width: 100%;
-    height: 3px;
-    background: red;
-    animation: scanMove 2s infinite linear;
+/* Dark outside */
+#overlay{
+    position:absolute;
+    width:100%;
+    height:100%;
+    pointer-events:none;
 }
 
-@keyframes scanMove {
-    0% { top: 10%; }
-    50% { top: 80%; }
-    100% { top: 10%; }
+#overlay:before{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:85%;
+    height:120px;
+    transform:translate(-50%,-50%);
+    box-shadow:0 0 0 2000px rgba(0,0,0,0.7);
+    border-radius:12px;
 }
 
-button {
-    padding: 8px 12px;
-    margin: 8px;
-    font-size: 14px;
+/* Green frame */
+#frame{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:85%;
+    height:120px;
+    transform:translate(-50%,-50%);
+    border:3px solid #00ff00;
+    border-radius:12px;
+    overflow:hidden;
 }
 
-#resultBox {
-    margin-top: 10px;
-    font-size: 18px;
-    color: yellow;
-    word-break: break-all;
+/* Scan line */
+#scan-line{
+    position:absolute;
+    width:100%;
+    height:3px;
+    background:red;
+    animation:scanMove 2s infinite linear;
 }
 
-table {
+@keyframes scanMove{
+    0%{top:10%;}
+    50%{top:85%;}
+    100%{top:10%;}
+}
+
+#result{
+    margin-top:8px;
+    color:yellow;
+    font-size:16px;
+    word-break:break-all;
+}
+
+/* Table */
+table{
     width:100%;
     max-width:420px;
     margin:15px auto;
-    border-collapse: collapse;
+    border-collapse:collapse;
     background:white;
     color:black;
 }
 
-th, td {
+th,td{
     border:1px solid black;
     padding:6px;
-    font-size:14px;
-}
-
-canvas {
-    display:none;
+    font-size:13px;
 }
 </style>
 </head>
@@ -101,12 +124,13 @@ canvas {
 
 <div id="container">
     <video id="video"></video>
+    <div id="overlay"></div>
     <div id="frame">
         <div id="scan-line"></div>
     </div>
 </div>
 
-<div id="resultBox">Scanned Barcode: -</div>
+<div id="result">Scanned: -</div>
 
 <h3>Scanned List</h3>
 <table id="scanTable">
@@ -116,69 +140,58 @@ canvas {
 </tr>
 </table>
 
-<canvas id="barcodeCanvas"></canvas>
-
 <script>
 
 let codeReader = new ZXing.BrowserMultiFormatReader();
-let scannedData = [];
-let scannedSet = new Set();
-let cooldown = false;
-let scanning = false;
-let serial = 1;
+let scanning=false;
+let scannedSet=new Set();
+let scannedData=[];
+let serial=1;
+let cooldown=false;
 
-async function startScan() {
+async function startScan(){
 
-    if (scanning) return;
-    scanning = true;
+    if(scanning) return;
+    scanning=true;
 
-    const constraints = {
-        video: { facingMode: { ideal: "environment" } }
+    const constraints={
+        video:{ facingMode:{ ideal:"environment"}}
     };
 
     codeReader.decodeFromConstraints(
         constraints,
         "video",
-        (result, err) => {
-            if (result && !cooldown) {
+        (result,err)=>{
 
-                let text = result.text;
+            if(result && !cooldown){
 
-                if (scannedSet.has(text)) return;
+                let text=result.text;
+
+                if(scannedSet.has(text)) return;
 
                 scannedSet.add(text);
-                cooldown = true;
+                cooldown=true;
 
-                document.getElementById("resultBox").innerText =
-                    "Scanned Barcode: " + text;
+                // Show scanned
+                document.getElementById("result").innerText="Scanned: "+text;
 
                 // Flash green
-                let line = document.getElementById("scan-line");
-                line.style.background = "lime";
+                let line=document.getElementById("scan-line");
+                line.style.background="lime";
+                setTimeout(()=>{
+                    line.style.background="red";
+                    cooldown=false;
+                },600);
 
-                setTimeout(() => {
-                    line.style.background = "red";
-                    cooldown = false;
-                }, 700);
-
-                // Add to website list (top to bottom order)
-                let table = document.getElementById("scanTable");
-                let row = table.insertRow(-1);
-                row.insertCell(0).innerHTML = serial;
-                row.insertCell(1).innerHTML = text;
-
-                // Generate barcode image
-                let canvas = document.getElementById("barcodeCanvas");
-                JsBarcode(canvas, text, {
-                    format: "CODE128",
-                    width: 2,
-                    height: 60,
-                    displayValue: true
-                });
+                // Add to list
+                let table=document.getElementById("scanTable");
+                let row=table.insertRow(-1);
+                row.insertCell(0).innerHTML=serial;
+                row.insertCell(1).innerHTML=text;
 
                 scannedData.push({
-                    value: text,
-                    image: canvas.toDataURL("image/png")
+                    "S.No":serial,
+                    "Barcode":text
                 });
 
                 serial++;
@@ -187,53 +200,17 @@ async function startScan() {
     );
 }
 
-function stopScan() {
+function stopScan(){
     codeReader.reset();
-    scanning = false;
+    scanning=false;
 }
 
-async function downloadExcel() {
+function downloadExcel(){
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Barcodes");
-
-    sheet.columns = [
-        { header: "S.No", width: 10 },
-        { header: "Barcode Value", width: 25 },
-        { header: "Barcode Image", width: 30 }
-    ];
-
-    for (let i = 0; i < scannedData.length; i++) {
-
-        const row = sheet.addRow([
-            i + 1,
-            scannedData[i].value,
-            ""
-        ]);
-
-        row.height = 60;
-
-        const imageId = workbook.addImage({
-            base64: scannedData[i].image,
-            extension: 'png'
-        });
-
-        sheet.addImage(imageId, {
-            tl: { col: 2, row: i + 1 },
-            ext: { width: 200, height: 60 }
-        });
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-
-    const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    });
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "Barcode_With_Image.xlsx";
-    link.click();
+    let ws=XLSX.utils.json_to_sheet(scannedData);
+    let wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Barcodes");
+    XLSX.writeFile(wb,"Scanned_Barcodes.xlsx");
 }
 
 </script>
