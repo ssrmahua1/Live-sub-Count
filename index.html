@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Precision Scanner V2.2</title>
+    <title>iPhone Barcode Pro</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -13,115 +13,103 @@
     <style>
         :root {
             --bg: #000000;
-            --green: #4CAF50;
-            --red: #FF3B30;
-            --ui-panel: #1A1A1A;
+            --accent: #007AFF; /* iPhone Blue */
+            --panel: #1C1C1E;
+            --safe-top: env(safe-area-inset-top);
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: white;
-            margin: 0; padding: 10px;
-            display: flex; flex-direction: column; align-items: center;
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column;
+            height: 100vh; width: 100vw;
+            overflow: hidden;
         }
 
-        #scanner-viewport {
+        /* FULL CAMERA VIEWPORT - NO CROP */
+        #scanner-wrapper {
             position: relative;
             width: 100%;
-            max-width: 360px;
-            height: 280px;
-            background: #111;
-            border-radius: 20px;
+            height: 45vh; /* Upper half for camera */
+            background: #000;
             overflow: hidden;
-            border: 1px solid #333;
-            margin-bottom: 15px;
+            border-bottom: 2px solid #333;
         }
 
         #reader { width: 100% !important; height: 100% !important; }
 
-        /* Rectangular Mask */
-        #mask {
+        /* Minimal Modern Overlay */
+        #ui-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5; pointer-events: none;
-            background: rgba(0, 0, 0, 0.7);
-            -webkit-mask-image: linear-gradient(black, black), linear-gradient(black, black);
-            mask-clip: content-box, border-box;
-            mask-composite: exclude;
-            -webkit-mask-composite: destination-out;
-            padding: 100px 30px;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
 
-        #green-box {
-            position: absolute;
-            top: 100px; bottom: 100px; left: 30px; right: 30px;
-            border: 2px solid var(--green);
-            z-index: 10;
-            display: flex; align-items: center; justify-content: space-between;
+        .focus-guide {
+            width: 70%; height: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
 
-        /* Fixed Red Line */
-        #red-line {
-            position: absolute;
-            width: 100%; height: 2px;
-            background: var(--red);
-            box-shadow: 0 0 8px var(--red);
-            z-index: 11;
+        /* CONTROLS AREA */
+        .controls {
+            padding: 15px;
+            display: flex; gap: 10px;
+            background: var(--panel);
+            width: 100%;
         }
 
-        /* White T-Markers inside green box */
-        .t-marker {
-            width: 20px; height: 30px;
-            border: 3px solid white;
-            z-index: 12;
-            position: relative;
+        button {
+            flex: 1; height: 50px; border: none; border-radius: 12px;
+            font-size: 15px; font-weight: 600; cursor: pointer; color: white;
         }
-        .t-left { border-right: none; border-top: none; border-bottom: none; margin-left: 5px; }
-        .t-right { border-left: none; border-top: none; border-bottom: none; margin-right: 5px; }
+        #start-btn { background: #32D74B; color: black; }
+        #stop-btn { background: #FF453A; }
+        #dl-btn { background: var(--accent); }
+        button:disabled { opacity: 0.2; }
+
+        /* DATA LIST AREA - Fit for Scrolling */
+        .table-wrap {
+            flex: 1;
+            width: 100%;
+            background: var(--bg);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #121212; color: #8E8E93; padding: 12px; font-size: 11px; text-align: left; position: sticky; top: 0; }
+        td { padding: 12px; border-bottom: 1px solid #2C2C2E; font-size: 14px; text-align: center; }
         
-        /* Red extensions on T-markers */
-        .t-marker::after {
-            content: '';
-            position: absolute;
-            top: 50%; width: 10px; height: 2px;
-            background: var(--red);
+        .img-thumb { width: 80px; height: 45px; object-fit: cover; border-radius: 6px; background: white; border: 1px solid #333; }
+        
+        .status-pill {
+            background: rgba(50, 215, 75, 0.1);
+            color: #32D74B;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
         }
-        .t-left::after { left: 0; }
-        .t-right::after { right: 0; }
-
-        .success-flash { background: var(--green) !important; box-shadow: 0 0 20px var(--green) !important; }
-
-        .controls { display: flex; gap: 8px; width: 100%; max-width: 360px; margin-bottom: 15px; }
-        button { flex: 1; height: 50px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; }
-        #start-btn { background: #1E3A1E; color: var(--green); }
-        #stop-btn { background: #3D1A1A; color: var(--red); }
-        #dl-btn { background: #1A73E8; }
-
-        .table-wrap { width: 100%; max-width: 360px; background: var(--ui-panel); border-radius: 12px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #252525; color: var(--green); padding: 10px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #2A2A2A; text-align: center; }
-        .img-cell { width: 70px; height: 40px; object-fit: cover; border-radius: 4px; background: white; }
     </style>
 </head>
 <body>
 
-    <h3 style="margin: 10px 0;">PRECISION SCANNER <span style="font-size: 10px; opacity: 0.5;">V2.2</span></h3>
-
-    <div id="scanner-viewport">
+    <div id="scanner-wrapper">
         <div id="reader"></div>
-        <div id="mask"></div>
-        <div id="green-box">
-            <div class="t-marker t-left"></div>
-            <div id="red-line"></div>
-            <div class="t-marker t-right"></div>
+        <div id="ui-overlay">
+            <div class="focus-guide"></div>
+            <p style="margin-top: 10px; font-size: 12px; opacity: 0.6;">Align barcode with line</p>
         </div>
     </div>
 
     <div class="controls">
-        <button id="start-btn">START</button>
+        <button id="start-btn">START SCAN</button>
         <button id="stop-btn" disabled>STOP</button>
-        <button id="dl-btn">EXCEL</button>
+        <button id="dl-btn">DOWNLOAD EXCEL</button>
     </div>
 
     <div class="table-wrap">
@@ -129,8 +117,8 @@
             <thead>
                 <tr>
                     <th>SNo</th>
-                    <th>Value</th>
-                    <th>Capture</th>
+                    <th>Barcode</th>
+                    <th>Photo</th>
                     <th>CODE128</th>
                 </tr>
             </thead>
@@ -138,57 +126,60 @@
         </table>
     </div>
 
-    <canvas id="crop-cvs" style="display:none;"></canvas>
-    <canvas id="barcode-cvs" style="display:none;"></canvas>
+    <canvas id="temp-canvas" style="display:none;"></canvas>
+    <canvas id="bar-gen" style="display:none;"></canvas>
 
     <script>
         let scanner;
-        let scans = [];
-        let isLocked = false;
+        let scanList = [];
+        let isBusy = false;
 
         async function onScan(text, result) {
-            // Strict Duplicate Check
-            if (isLocked || scans.some(s => s.val === text)) return;
+            // DUPLICATE CHECK: Ek barcode dobara scan nahi hoga
+            if (isBusy || scanList.some(s => s.val === text)) return;
 
-            isLocked = true;
-            document.getElementById('red-line').classList.add('success-flash');
-
-            // 1. Precise Crop
+            isBusy = true;
+            
+            // 1. FULL CAMERA CAPTURE (NO CROP)
             const video = document.querySelector('video');
-            const cropCvs = document.getElementById('crop-cvs');
-            const ctx = cropCvs.getContext('2d');
-            const vW = video.videoWidth; const vH = video.videoHeight;
-            const cropW = vW * 0.8; const cropH = vH * 0.2;
-            cropCvs.width = cropW; cropCvs.height = cropH;
-            ctx.drawImage(video, (vW-cropW)/2, (vH-cropH)/2, cropW, cropH, 0, 0, cropW, cropH);
-            const photo = cropCvs.toDataURL('image/jpeg', 0.8);
+            const canvas = document.getElementById('temp-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const photo = canvas.toDataURL('image/jpeg', 0.6);
 
-            // 2. JsBarcode
-            const barCvs = document.getElementById('barcode-cvs');
-            try { JsBarcode(barCvs, text, { format: "CODE128", width: 4, height: 60, displayValue: true }); } catch(e) {}
-            const barImg = barCvs.toDataURL('image/png');
+            // 2. JSBARCODE (CODE128)
+            const genCvs = document.getElementById('bar-gen');
+            try {
+                JsBarcode(genCvs, text, { format: "CODE128", width: 3, height: 60, displayValue: true });
+            } catch(e) {}
+            const barcodeImg = genCvs.toDataURL('image/png');
 
-            // 3. UI Update
-            const entry = { sno: scans.length + 1, val: text, photo: photo, bar: barImg };
-            scans.push(entry);
+            // 3. LOG DATA
+            const entry = { sno: scanList.length + 1, val: text, photo: photo, bar: barcodeImg };
+            scanList.push(entry);
 
+            // 4. UI UPDATE
             const row = `<tr>
                 <td>${entry.sno}</td>
-                <td style="font-weight:bold">${entry.val}</td>
-                <td><img src="${photo}" class="img-cell"></td>
-                <td><img src="${barImg}" class="img-cell"></td>
+                <td><span class="status-pill">${entry.val}</span></td>
+                <td><img src="${photo}" class="img-thumb"></td>
+                <td><img src="${barcodeImg}" class="img-thumb"></td>
             </tr>`;
             document.getElementById('log-body').insertAdjacentHTML('afterbegin', row);
 
-            setTimeout(() => {
-                document.getElementById('red-line').classList.remove('success-flash');
-                isLocked = false;
-            }, 1200); // 1.2s cooldown to prevent accidental rapid rescans
+            // Cooldown 1 sec for fast scanning
+            setTimeout(() => { isBusy = false; }, 1000);
         }
 
         async function start() {
             scanner = new Html5Qrcode("reader");
-            const config = { fps: 25, qrbox: { width: 300, height: 80 }, aspectRatio: 1.0 };
+            const config = { 
+                fps: 30, 
+                qrbox: (w, h) => { return { width: w * 0.8, height: h * 0.4 } }, // Logic area stays in center
+                aspectRatio: 1.77777778 // 16:9 for iPhone
+            };
             await scanner.start({ facingMode: "environment" }, config, onScan);
             document.getElementById('start-btn').disabled = true;
             document.getElementById('stop-btn').disabled = false;
@@ -203,25 +194,26 @@
         }
 
         async function exportExcel() {
-            if (!scans.length) return;
+            if (!scanList.length) return;
             const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Scans');
+            const ws = wb.addWorksheet('ScannedData');
             ws.columns = [
                 { header: 'SNo', key: 'sno', width: 8 },
-                { header: 'Barcode', key: 'val', width: 25 },
-                { header: 'Photo', key: 'photo', width: 25 },
-                { header: 'Gen-Barcode', key: 'bar', width: 25 }
+                { header: 'Value', key: 'val', width: 25 },
+                { header: 'Capture', key: 'photo', width: 25 },
+                { header: 'BarcodeGen', key: 'bar', width: 25 }
             ];
-            for (const s of scans) {
+
+            for (const s of scanList) {
                 const row = ws.addRow({ sno: s.sno, val: s.val });
-                row.height = 70;
+                row.height = 80;
                 const pId = wb.addImage({ base64: s.photo, extension: 'jpeg' });
                 const bId = wb.addImage({ base64: s.bar, extension: 'png' });
-                ws.addImage(pId, { tl: { col: 2, row: row.number-1 }, ext: { width: 140, height: 60 } });
-                ws.addImage(bId, { tl: { col: 3, row: row.number-1 }, ext: { width: 140, height: 60 } });
+                ws.addImage(pId, { tl: { col: 2, row: row.number-1 }, ext: { width: 160, height: 80 } });
+                ws.addImage(bId, { tl: { col: 3, row: row.number-1 }, ext: { width: 160, height: 80 } });
             }
             const buf = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buf]), "Barcode_Report_V2.2.xlsx");
+            saveAs(new Blob([buf]), "iPhone_Scans.xlsx");
         }
 
         document.getElementById('start-btn').onclick = start;
