@@ -1,219 +1,309 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Professional Barcode Scanner</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Professional Barcode Scanner</title>
+    
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-bg: #121212;
+            --card-bg: #1e1e1e;
+            --accent-green: #4caf50;
+            --accent-red: #f44336;
+            --text-main: #e0e0e0;
+        }
 
-<script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-<style>
-body{
-    margin:0;
-    background:#111;
-    color:white;
-    font-family:Arial;
-    text-align:center;
-}
+        /* Scanner Container */
+        #scanner-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1/1;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
 
-h2{margin:10px 0;}
+        #reader {
+            width: 100%;
+            height: 100%;
+        }
 
-button{
-    padding:8px 15px;
-    margin:6px;
-    font-size:14px;
-}
+        /* Overlay & Masking */
+        #scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            /* Creates the dark semi-transparent mask around the clear box */
+            background: rgba(0, 0, 0, 0.7);
+            mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+            mask-clip: content-box, border-box;
+            mask-composite: exclude;
+            -webkit-mask-composite: destination-out;
+            padding: 20%; /* Controls the size of the clear box */
+        }
 
-#container{
-    position:relative;
-    width:100%;
-    max-width:420px;
-    height:260px;
-    margin:auto;
-    overflow:hidden;
-    border-radius:12px;
-}
+        /* The Green Frame */
+        #scan-region-highlight {
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            right: 20%;
+            bottom: 20%;
+            border: 3px solid var(--accent-green);
+            z-index: 11;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.2);
+        }
 
-video{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-}
+        /* Moving Scan Line */
+        #scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background-color: var(--accent-red);
+            top: 0;
+            left: 0;
+            box-shadow: 0 0 8px var(--accent-red);
+            animation: moveLine 2.5s infinite linear;
+            z-index: 12;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
 
-/* Dark outside */
-#overlay{
-    position:absolute;
-    width:100%;
-    height:100%;
-    pointer-events:none;
-}
+        @keyframes moveLine {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
 
-#overlay:before{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:85%;
-    height:120px;
-    transform:translate(-50%,-50%);
-    box-shadow:0 0 0 2000px rgba(0,0,0,0.7);
-    border-radius:12px;
-}
+        .line-success {
+            background-color: var(--accent-green) !important;
+            box-shadow: 0 0 12px var(--accent-green) !important;
+        }
 
-/* Green frame */
-#frame{
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:85%;
-    height:120px;
-    transform:translate(-50%,-50%);
-    border:3px solid #00ff00;
-    border-radius:12px;
-    overflow:hidden;
-}
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 500px;
+        }
 
-/* Scan line */
-#scan-line{
-    position:absolute;
-    width:100%;
-    height:3px;
-    background:red;
-    animation:scanMove 2s infinite linear;
-}
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
 
-@keyframes scanMove{
-    0%{top:10%;}
-    50%{top:85%;}
-    100%{top:10%;}
-}
+        #start-btn { background-color: var(--accent-green); color: white; }
+        #stop-btn { background-color: var(--accent-red); color: white; }
+        #download-btn { background-color: #2196f3; color: white; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-#result{
-    margin-top:8px;
-    color:yellow;
-    font-size:16px;
-    word-break:break-all;
-}
+        /* Data Display */
+        .status-panel {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
 
-/* Table */
-table{
-    width:100%;
-    max-width:420px;
-    margin:15px auto;
-    border-collapse:collapse;
-    background:white;
-    color:black;
-}
+        #last-result {
+            font-size: 1.2rem;
+            color: var(--accent-green);
+            font-weight: bold;
+            word-break: break-all;
+        }
 
-th,td{
-    border:1px solid black;
-    padding:6px;
-    font-size:13px;
-}
-</style>
+        /* Table Styles */
+        .table-container {
+            width: 100%;
+            max-width: 500px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th { background-color: #2a2a2a; color: var(--accent-green); }
+    </style>
 </head>
-
 <body>
 
-<h2>📷 Barcode Scanner</h2>
+    <h2 style="margin-top: 0;">PRO Barcode Scanner</h2>
 
-<button onclick="startScan()">Start</button>
-<button onclick="stopScan()">Stop</button>
-<button onclick="downloadExcel()">Download Excel</button>
-
-<div id="container">
-    <video id="video"></video>
-    <div id="overlay"></div>
-    <div id="frame">
-        <div id="scan-line"></div>
+    <div id="scanner-wrapper">
+        <div id="reader"></div>
+        <div id="scanner-overlay"></div>
+        <div id="scan-region-highlight">
+            <div id="scan-line"></div>
+        </div>
     </div>
-</div>
 
-<div id="result">Scanned: -</div>
+    <div class="status-panel">
+        <div>Last Scanned:</div>
+        <div id="last-result">None</div>
+    </div>
 
-<h3>Scanned List</h3>
-<table id="scanTable">
-<tr>
-<th>S.No</th>
-<th>Barcode</th>
-</tr>
-</table>
+    <div class="controls">
+        <button id="start-btn">Start Scan</button>
+        <button id="stop-btn" disabled>Stop Scan</button>
+        <button id="download-btn">Download Excel</button>
+    </div>
 
-<script>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Barcode Value</th>
+                </tr>
+            </thead>
+            <tbody id="scanned-list">
+                </tbody>
+        </table>
+    </div>
 
-let codeReader = new ZXing.BrowserMultiFormatReader();
-let scanning=false;
-let scannedSet=new Set();
-let scannedData=[];
-let serial=1;
-let cooldown=false;
+    <script>
+        let html5QrCode;
+        let scannedData = [];
+        let isCooldown = false;
 
-async function startScan(){
+        const lastResultDisplay = document.getElementById('last-result');
+        const scannedList = document.getElementById('scanned-list');
+        const scanLine = document.getElementById('scan-line');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const downloadBtn = document.getElementById('download-btn');
 
-    if(scanning) return;
-    scanning=true;
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isCooldown) return;
+            
+            // Block duplicates
+            if (scannedData.includes(decodedText)) {
+                return;
+            }
 
-    const constraints={
-        video:{ facingMode:{ ideal:"environment"}}
-    };
+            // Success Visual Feedback
+            isCooldown = true;
+            scanLine.classList.add('line-success');
+            lastResultDisplay.innerText = decodedText;
 
-    codeReader.decodeFromConstraints(
-        constraints,
-        "video",
-        (result,err)=>{
+            // Update Data
+            scannedData.push(decodedText);
+            updateTable();
 
-            if(result && !cooldown){
+            // Cooldown logic (0.7 seconds)
+            setTimeout(() => {
+                scanLine.classList.remove('line-success');
+                isCooldown = false;
+            }, 700);
+        }
 
-                let text=result.text;
+        function updateTable() {
+            scannedList.innerHTML = "";
+            scannedData.forEach((code, index) => {
+                const row = `<tr>
+                    <td>${index + 1}</td>
+                    <td>${code}</td>
+                </tr>`;
+                scannedList.innerHTML += row;
+            });
+        }
 
-                if(scannedSet.has(text)) return;
+        async function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 20, 
+                qrbox: (viewWidth, viewHeight) => {
+                    // Logic to ensure scanning only happens inside the green box
+                    const size = Math.min(viewWidth, viewHeight) * 0.6;
+                    return { width: size, height: size };
+                },
+                aspectRatio: 1.0
+            };
 
-                scannedSet.add(text);
-                cooldown=true;
-
-                // Show scanned
-                document.getElementById("result").innerText="Scanned: "+text;
-
-                // Flash green
-                let line=document.getElementById("scan-line");
-                line.style.background="lime";
-                setTimeout(()=>{
-                    line.style.background="red";
-                    cooldown=false;
-                },600);
-
-                // Add to list
-                let table=document.getElementById("scanTable");
-                let row=table.insertRow(-1);
-                row.insertCell(0).innerHTML=serial;
-                row.insertCell(1).innerHTML=text;
-
-                scannedData.push({
-                    "S.No":serial,
-                    "Barcode":text
-                });
-
-                serial++;
+            try {
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess
+                );
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } catch (err) {
+                alert("Camera Error: " + err);
             }
         }
-    );
-}
 
-function stopScan(){
-    codeReader.reset();
-    scanning=false;
-}
+        async function stopScanner() {
+            if (html5QrCode) {
+                await html5QrCode.stop();
+                html5QrCode.clear();
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
 
-function downloadExcel(){
+        function downloadExcel() {
+            if (scannedData.length === 0) {
+                alert("No data to export!");
+                return;
+            }
 
-    let ws=XLSX.utils.json_to_sheet(scannedData);
-    let wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"Barcodes");
-    XLSX.writeFile(wb,"Scanned_Barcodes.xlsx");
-}
+            const dataForExcel = scannedData.map((code, index) => ({
+                "S.No": index + 1,
+                "Barcode Value": code
+            }));
 
-</script>
+            const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Barcodes");
+            XLSX.writeFile(workbook, "Scanned_Barcodes.xlsx");
+        }
 
+        startBtn.addEventListener('click', startScanner);
+        stopBtn.addEventListener('click', stopScanner);
+        downloadBtn.addEventListener('click', downloadExcel);
+    </script>
 </body>
 </html>
