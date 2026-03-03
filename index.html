@@ -2,10 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Professional Barcode Scanner</title>
+<title>Complete Barcode Scanner with Camera Select</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <style>
 body {
@@ -22,7 +23,7 @@ body {
 }
 
 video {
-    width: 380px;
+    width: 400px;
     border-radius: 10px;
 }
 
@@ -44,43 +45,37 @@ video {
     background: #00ff00;
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -50%);
     animation: scanMove 2s infinite linear;
 }
 
 @keyframes scanMove {
-    0% { transform: translate(-50%, -75px); }
-    50% { transform: translate(-50%, 75px); }
-    100% { transform: translate(-50%, -75px); }
+    0% { transform: translate(-50%, -70px); }
+    50% { transform: translate(-50%, 70px); }
+    100% { transform: translate(-50%, -70px); }
 }
 
-button {
-    padding: 10px 20px;
+button, select {
+    padding: 10px 15px;
     margin: 10px;
-    font-weight: bold;
     font-size: 16px;
+    font-weight: bold;
 }
 
-table {
-    margin: 20px auto;
-    border-collapse: collapse;
-    background: white;
-    color: black;
-}
-
-th, td {
-    border: 1px solid black;
-    padding: 6px 12px;
+canvas {
+    display: none;
 }
 </style>
 </head>
 
 <body>
 
-<h2>⚡ Professional Fast Barcode Scanner</h2>
+<h2>⚡ Barcode Scanner (Camera Select)</h2>
 
+<select id="cameraSelect"></select>
+<br>
 <button onclick="startScan()">Start Scan</button>
 <button onclick="stopScan()">Stop Scan</button>
+<button onclick="downloadExcel()">Download Excel</button>
 
 <div id="container">
     <video id="video"></video>
@@ -88,30 +83,46 @@ th, td {
     <div id="scan-line"></div>
 </div>
 
-<h3>Scanned List</h3>
-
-<table id="table">
-<tr>
-<th>S.No</th>
-<th>Barcode</th>
-<th>Time</th>
-</tr>
-</table>
-
-<button onclick="downloadExcel()">Download Excel</button>
+<canvas id="barcodeCanvas"></canvas>
 
 <script>
+
 let codeReader = new ZXing.BrowserMultiFormatReader();
-let selectedDeviceId;
-let serial = 1;
+let scannedData = [];
 let scannedSet = new Set();
-let scannedArray = [];
 let cooldown = false;
+let scanning = false;
+let selectedDeviceId = null;
+
+// Load cameras
+async function loadCameras() {
+    const devices = await codeReader.listVideoInputDevices();
+    const select = document.getElementById("cameraSelect");
+
+    devices.forEach(device => {
+        const option = document.createElement("option");
+        option.value = device.deviceId;
+        option.text = device.label || `Camera ${select.length + 1}`;
+        select.appendChild(option);
+    });
+
+    if (devices.length > 0) {
+        selectedDeviceId = devices[0].deviceId;
+    }
+
+    select.onchange = function() {
+        selectedDeviceId = this.value;
+    };
+}
+
+loadCameras();
 
 async function startScan() {
 
-    const devices = await codeReader.listVideoInputDevices();
-    selectedDeviceId = devices[0].deviceId;
+    if (scanning) return;
+    if (!selectedDeviceId) return alert("No camera found");
+
+    scanning = true;
 
     codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
         if (result && !cooldown) {
@@ -123,37 +134,76 @@ async function startScan() {
             scannedSet.add(text);
             cooldown = true;
 
-            let now = new Date().toLocaleTimeString();
+            let canvas = document.getElementById("barcodeCanvas");
 
-            scannedArray.push({
-                sno: serial,
-                barcode: text,
-                time: now
+            JsBarcode(canvas, text, {
+                format: "CODE128",
+                width: 2,
+                height: 80,
+                displayValue: true
             });
 
-            let table = document.getElementById("table");
-            let row = table.insertRow(-1);
-            row.insertCell(0).innerHTML = serial;
-            row.insertCell(1).innerHTML = text;
-            row.insertCell(2).innerHTML = now;
+            let imageBase64 = canvas.toDataURL("image/png");
 
-            serial++;
+            scannedData.push({
+                value: text,
+                image: imageBase64
+            });
 
-            setTimeout(() => cooldown = false, 1000);
+            setTimeout(() => cooldown = false, 800);
         }
     });
 }
 
 function stopScan() {
     codeReader.reset();
+    scanning = false;
 }
 
-function downloadExcel() {
-    let ws = XLSX.utils.json_to_sheet(scannedArray);
-    let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
-    XLSX.writeFile(wb, "Scanned_Barcodes.xlsx");
+async function downloadExcel() {
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Barcodes");
+
+    sheet.columns = [
+        { header: "S.No", width: 10 },
+        { header: "Barcode Value", width: 25 },
+        { header: "Barcode Image", width: 35 }
+    ];
+
+    for (let i = 0; i < scannedData.length; i++) {
+
+        const row = sheet.addRow([
+            i + 1,
+            scannedData[i].value,
+            ""
+        ]);
+
+        row.height = 70;
+
+        const imageId = workbook.addImage({
+            base64: scannedData[i].image,
+            extension: 'png'
+        });
+
+        sheet.addImage(imageId, {
+            tl: { col: 2, row: i + 1 },
+            ext: { width: 220, height: 70 }
+        });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Barcode_With_Image.xlsx";
+    link.click();
 }
+
 </script>
 
 </body>
