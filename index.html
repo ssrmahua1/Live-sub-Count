@@ -40,21 +40,21 @@ video {
     transform: translate(-50%, -50%);
     border: 3px solid #00ff00;
     border-radius: 12px;
+    overflow: hidden;
 }
 
 #scan-line {
     position: absolute;
-    width: 80%;
+    width: 100%;
     height: 3px;
     background: red;
-    left: 50%;
     animation: scanMove 2s infinite linear;
 }
 
 @keyframes scanMove {
-    0% { top: 35%; }
-    50% { top: 65%; }
-    100% { top: 35%; }
+    0% { top: 10%; }
+    50% { top: 80%; }
+    100% { top: 10%; }
 }
 
 button {
@@ -70,8 +70,23 @@ button {
     word-break: break-all;
 }
 
+table {
+    width:100%;
+    max-width:420px;
+    margin:15px auto;
+    border-collapse: collapse;
+    background:white;
+    color:black;
+}
+
+th, td {
+    border:1px solid black;
+    padding:6px;
+    font-size:14px;
+}
+
 canvas {
-    display: none;
+    display:none;
 }
 </style>
 </head>
@@ -86,11 +101,20 @@ canvas {
 
 <div id="container">
     <video id="video"></video>
-    <div id="frame"></div>
-    <div id="scan-line"></div>
+    <div id="frame">
+        <div id="scan-line"></div>
+    </div>
 </div>
 
 <div id="resultBox">Scanned Barcode: -</div>
+
+<h3>Scanned List</h3>
+<table id="scanTable">
+<tr>
+<th>S.No</th>
+<th>Barcode</th>
+</tr>
+</table>
 
 <canvas id="barcodeCanvas"></canvas>
 
@@ -101,16 +125,15 @@ let scannedData = [];
 let scannedSet = new Set();
 let cooldown = false;
 let scanning = false;
+let serial = 1;
 
 async function startScan() {
 
     if (scanning) return;
-
     scanning = true;
 
-    // Force back camera
     const constraints = {
-        video: { facingMode: { exact: "environment" } }
+        video: { facingMode: { ideal: "environment" } }
     };
 
     codeReader.decodeFromConstraints(
@@ -129,14 +152,20 @@ async function startScan() {
                 document.getElementById("resultBox").innerText =
                     "Scanned Barcode: " + text;
 
-                // Line green on scan
+                // Flash green
                 let line = document.getElementById("scan-line");
                 line.style.background = "lime";
 
                 setTimeout(() => {
                     line.style.background = "red";
                     cooldown = false;
-                }, 800);
+                }, 700);
+
+                // Add to website list (top to bottom order)
+                let table = document.getElementById("scanTable");
+                let row = table.insertRow(-1);
+                row.insertCell(0).innerHTML = serial;
+                row.insertCell(1).innerHTML = text;
 
                 // Generate barcode image
                 let canvas = document.getElementById("barcodeCanvas");
@@ -151,6 +180,8 @@ async function startScan() {
                     value: text,
                     image: canvas.toDataURL("image/png")
                 });
+
+                serial++;
             }
         }
     );
