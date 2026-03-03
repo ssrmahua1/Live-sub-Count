@@ -3,28 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Professional Barcode System</title>
-    
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <title>ZXing Pro Scanner</title>
+
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    
+
     <style>
         :root {
-            --primary: #2563eb;
-            --success: #16a34a;
-            --danger: #dc2626;
-            --gray: #f8fafc;
-            --text: #1e293b;
+            --primary: #007AFF;
+            --success: #34C759;
+            --danger: #FF3B30;
+            --safe-top: env(safe-area-inset-top, 0px);
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
         body {
-            font-family: -apple-system, system-ui, sans-serif;
-            background-color: #ffffff;
-            color: var(--text);
+            font-family: -apple-system, sans-serif;
+            background: #F2F2F7;
+            color: #000;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -33,289 +30,199 @@
             overflow: hidden;
         }
 
-        /* 1. TOP HEADER */
-        header {
-            padding: 15px 20px;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
-            text-align: center;
-            font-weight: 800;
-            letter-spacing: 1px;
-            font-size: 1.2rem;
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-
-        /* 2. CAMERA BOX (Full Width, Simple) */
-        #scanner-section {
-            width: 100%;
-            height: 35vh;
-            background: #000;
+        /* 1. Camera Section */
+        #scanner-container {
             position: relative;
-            flex-shrink: 0;
-        }
-
-        #reader { width: 100% !important; height: 100% !important; }
-
-        /* Scanning Line Animation */
-        .scan-line {
-            position: absolute;
-            top: 50%;
-            left: 0;
             width: 100%;
-            height: 2px;
+            height: 40%;
+            background: #000;
+            flex-shrink: 0;
+            margin-top: var(--safe-top);
+        }
+
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Professional Overlay */
+        #frame {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 70%; height: 40%;
+            transform: translate(-50%, -50%);
+            border: 2px solid var(--success);
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        #scan-line {
+            position: absolute;
+            width: 100%; height: 2px;
             background: var(--danger);
-            box-shadow: 0 0 15px var(--danger);
-            z-index: 10;
-            animation: moveLine 2s infinite ease-in-out;
+            box-shadow: 0 0 10px var(--danger);
+            animation: move 2.5s infinite ease-in-out;
         }
 
-        @keyframes moveLine {
-            0% { top: 20%; }
-            50% { top: 80%; }
-            100% { top: 20%; }
+        @keyframes move { 
+            0%, 100% { top: 10%; } 
+            50% { top: 90%; } 
         }
 
-        /* 3. CONTROLS (Floating Style) */
+        /* 2. Control Bar */
         .controls {
             display: flex;
             gap: 10px;
-            padding: 15px;
+            padding: 12px;
             background: #fff;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+            border-bottom: 1px solid #D1D1D6;
             flex-shrink: 0;
         }
 
         button {
-            flex: 1;
-            height: 48px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
+            flex: 1; height: 44px; border: none; border-radius: 10px;
+            font-weight: 600; font-size: 14px; cursor: pointer; color: white;
+            transition: opacity 0.2s;
         }
+        #btn-start { background: var(--success); }
+        #btn-stop { background: var(--danger); }
+        #btn-excel { background: var(--primary); }
+        button:disabled { opacity: 0.3; }
 
-        #start-btn { background: var(--success); color: white; }
-        #stop-btn { background: var(--danger); color: white; }
-        #xl-btn { background: var(--primary); color: white; }
-        button:disabled { opacity: 0.3; filter: grayscale(1); }
-        button:active { transform: scale(0.95); }
-
-        /* 4. DATA TABLE (White Theme) */
-        .data-section {
+        /* 3. List Table */
+        .list-container {
             flex-grow: 1;
             overflow-y: auto;
-            background: var(--gray);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        thead th {
-            position: sticky;
-            top: 0;
-            background: #f1f5f9;
-            padding: 12px;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: #64748b;
-            border-bottom: 2px solid #e2e8f0;
-            z-index: 20;
-        }
-
-        td {
-            padding: 12px 8px;
-            border-bottom: 1px solid #f1f5f9;
-            text-align: center;
-            font-size: 0.85rem;
-            vertical-align: middle;
-        }
-
-        .img-preview {
-            width: 80px;
-            height: 45px;
-            object-fit: cover;
-            border-radius: 4px;
-            border: 1px solid #e2e8f0;
             background: #fff;
         }
 
-        .barcode-val {
-            font-family: monospace;
-            font-weight: bold;
-            color: var(--primary);
-            background: #eff6ff;
-            padding: 4px 8px;
-            border-radius: 4px;
+        table { width: 100%; border-collapse: collapse; }
+        th { 
+            position: sticky; top: 0; background: #F2F2F7; 
+            padding: 10px; font-size: 12px; color: #8E8E93; 
+            text-align: center; border-bottom: 1px solid #D1D1D6;
         }
+        td { padding: 12px 8px; border-bottom: 1px solid #E5E5EA; text-align: center; font-size: 14px; }
+        
+        .barcode-img { width: 80px; height: 40px; border-radius: 4px; border: 1px solid #eee; }
+        .val-badge { background: #E5E5EA; padding: 4px 8px; border-radius: 6px; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <header>BARCODE MANAGER</header>
-
-    <div id="scanner-section">
-        <div id="reader"></div>
-        <div class="scan-line" id="line"></div>
+    <div id="scanner-container">
+        <video id="video"></video>
+        <div id="frame">
+            <div id="scan-line"></div>
+        </div>
     </div>
 
     <div class="controls">
-        <button id="start-btn">▶ START</button>
-        <button id="stop-btn" disabled>■ STOP</button>
-        <button id="xl-btn">⬇ EXCEL</button>
+        <button id="btn-start">START</button>
+        <button id="btn-stop" disabled>STOP</button>
+        <button id="btn-excel">EXCEL</button>
     </div>
 
-    <div class="data-section">
+    <div class="list-container">
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Value</th>
-                    <th>Photo</th>
-                    <th>Gen</th>
+                    <th>S.No</th>
+                    <th>Barcode Value</th>
+                    <th>Image</th>
                 </tr>
             </thead>
-            <tbody id="log-body">
-                </tbody>
+            <tbody id="scan-body"></tbody>
         </table>
     </div>
 
-    <canvas id="photo-cvs" style="display:none;"></canvas>
-    <canvas id="bar-cvs" style="display:none;"></canvas>
+    <canvas id="hidden-canvas" style="display:none;"></canvas>
 
     <script>
-        let scanner;
-        let dataRecords = [];
-        let isProcessing = false;
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+        const scanBody = document.getElementById('scan-body');
+        const startBtn = document.getElementById('btn-start');
+        const stopBtn = document.getElementById('btn-stop');
+        const excelBtn = document.getElementById('btn-excel');
 
-        const logBody = document.getElementById('log-body');
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const xlBtn = document.getElementById('xl-btn');
+        let scannedData = [];
+        let scannedSet = new Set();
+        let isCooldown = false;
 
-        async function handleScan(decodedText) {
-            // 1. DUPLICATE CHECK: Prevent same code twice
-            if (isProcessing || dataRecords.some(r => r.val === decodedText)) return;
-
-            isProcessing = true;
-            
-            // Provide Haptic/Visual Feedback
-            if (navigator.vibrate) navigator.vibrate(50);
-            document.getElementById('line').style.background = "var(--success)";
-
-            try {
-                // 2. CAPTURE PHOTO (Full Resolution)
-                const video = document.querySelector('video');
-                const pCanvas = document.getElementById('photo-cvs');
-                const pCtx = pCanvas.getContext('2d');
-                pCanvas.width = video.videoWidth;
-                pCanvas.height = video.videoHeight;
-                pCtx.drawImage(video, 0, 0);
-                const photoData = pCanvas.toDataURL('image/jpeg', 0.6);
-
-                // 3. GENERATE BARCODE
-                const bCanvas = document.getElementById('bar-cvs');
-                JsBarcode(bCanvas, decodedText, {
-                    format: "CODE128",
-                    width: 2,
-                    height: 50,
-                    displayValue: true
-                });
-                const barData = bCanvas.toDataURL('image/png');
-
-                // 4. SAVE RECORD
-                const entry = {
-                    id: dataRecords.length + 1,
-                    val: decodedText,
-                    photo: photoData,
-                    bar: barData
-                };
-                dataRecords.push(entry);
-
-                // 5. UPDATE UI (Add to top of table)
-                const row = `
-                    <tr>
-                        <td>${entry.id}</td>
-                        <td><span class="barcode-val">${entry.val}</span></td>
-                        <td><img src="${photoData}" class="img-preview"></td>
-                        <td><img src="${barData}" class="img-preview"></td>
-                    </tr>
-                `;
-                logBody.insertAdjacentHTML('afterbegin', row);
-
-            } catch (err) {
-                console.error("Error processing scan:", err);
-            }
-
-            // Cooldown to reset
-            setTimeout(() => {
-                isProcessing = false;
-                document.getElementById('line').style.background = "var(--danger)";
-            }, 1500);
-        }
-
-        async function startScanner() {
-            scanner = new Html5Qrcode("reader");
-            const config = { 
-                fps: 25, 
-                qrbox: (w, h) => ({ width: w * 0.7, height: h * 0.5 }),
-                aspectRatio: 1.7777 // 16:9 aspect ratio for phones
-            };
-
-            await scanner.start({ facingMode: "environment" }, config, handleScan);
-            
+        async function start() {
             startBtn.disabled = true;
             stopBtn.disabled = false;
+
+            codeReader.decodeFromConstraints({
+                video: { facingMode: "environment" }
+            }, "video", (result, err) => {
+                if (result && !isCooldown) {
+                    const text = result.text;
+                    
+                    if (scannedSet.has(text)) return;
+                    
+                    // Logic Start
+                    isCooldown = true;
+                    scannedSet.add(text);
+                    if (navigator.vibrate) navigator.vibrate(50);
+
+                    // Generate Barcode Image
+                    const canvas = document.getElementById('hidden-canvas');
+                    JsBarcode(canvas, text, { format: "CODE128", width: 2, height: 50 });
+                    const imgData = canvas.toDataURL("image/png");
+
+                    // Save Data
+                    const entry = { sno: scannedData.length + 1, val: text, img: imgData };
+                    scannedData.push(entry);
+
+                    // Update UI
+                    const row = `<tr>
+                        <td>${entry.sno}</td>
+                        <td><span class="val-badge">${entry.val}</span></td>
+                        <td><img src="${imgData}" class="barcode-img"></td>
+                    </tr>`;
+                    scanBody.insertAdjacentHTML('afterbegin', row);
+
+                    // Cooldown Reset
+                    setTimeout(() => { isCooldown = false; }, 1000);
+                }
+            });
         }
 
-        async function stopScanner() {
-            if (scanner) {
-                await scanner.stop();
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-            }
+        function stop() {
+            codeReader.reset();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
         }
 
         async function downloadExcel() {
-            if (dataRecords.length === 0) return alert("No data to export!");
+            if (scannedData.length === 0) return alert("List is empty!");
             
             const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Scan Data');
+            const ws = wb.addWorksheet("Barcodes");
 
             ws.columns = [
-                { header: 'ID', key: 'id', width: 8 },
-                { header: 'Barcode Value', key: 'val', width: 30 },
-                { header: 'Photo', key: 'photo', width: 25 },
-                { header: 'Generated Barcode', key: 'bar', width: 25 }
+                { header: "S.No", key: "sno", width: 10 },
+                { header: "Barcode Value", key: "val", width: 30 },
+                { header: "Image", key: "img", width: 30 }
             ];
 
-            for (const item of dataRecords) {
-                const row = ws.addRow({ id: item.id, val: item.val });
-                row.height = 70;
-
-                const pId = wb.addImage({ base64: item.photo, extension: 'jpeg' });
-                const bId = wb.addImage({ base64: item.bar, extension: 'png' });
-
-                ws.addImage(pId, { tl: { col: 2, row: row.number - 1 }, ext: { width: 150, height: 60 } });
-                ws.addImage(bId, { tl: { col: 3, row: row.number - 1 }, ext: { width: 150, height: 60 } });
+            for (const [i, item] of scannedData.entries()) {
+                const row = ws.addRow({ sno: item.sno, val: item.val });
+                row.height = 60;
+                
+                const imageId = wb.addImage({ base64: item.img, extension: 'png' });
+                ws.addImage(imageId, {
+                    tl: { col: 2, row: i + 1 },
+                    ext: { width: 180, height: 60 }
+                });
             }
 
             const buffer = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), "Scan_Report.xlsx");
+            saveAs(new Blob([buffer]), "Barcode_Report.xlsx");
         }
 
-        startBtn.onclick = startScanner;
-        stopBtn.onclick = stopScanner;
-        xlBtn.onclick = downloadExcel;
+        startBtn.onclick = start;
+        stopBtn.onclick = stop;
+        excelBtn.onclick = downloadExcel;
     </script>
 </body>
 </html>
