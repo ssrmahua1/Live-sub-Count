@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Precision Scanner Fix</title>
+    <title>Precision Scanner V2.2</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -19,81 +19,102 @@
         }
 
         body {
-            font-family: -apple-system, system-ui, sans-serif;
+            font-family: -apple-system, sans-serif;
             background: var(--bg);
             color: white;
-            margin: 0; padding: 15px;
+            margin: 0; padding: 10px;
             display: flex; flex-direction: column; align-items: center;
         }
 
-        /* Fixed Viewport matching your image */
         #scanner-viewport {
             position: relative;
             width: 100%;
             max-width: 360px;
             height: 280px;
             background: #111;
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
             border: 1px solid #333;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         #reader { width: 100% !important; height: 100% !important; }
 
-        /* Rectangular Mask Fix */
+        /* Rectangular Mask */
         #mask {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 5; pointer-events: none;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.7);
             -webkit-mask-image: linear-gradient(black, black), linear-gradient(black, black);
             mask-clip: content-box, border-box;
             mask-composite: exclude;
             -webkit-mask-composite: destination-out;
-            padding: 100px 25px; /* Visual clear area */
+            padding: 100px 30px;
         }
 
-        #green-frame {
+        #green-box {
             position: absolute;
-            top: 100px; bottom: 100px; left: 25px; right: 25px;
+            top: 100px; bottom: 100px; left: 30px; right: 30px;
             border: 2px solid var(--green);
             z-index: 10;
-            display: flex; align-items: center;
+            display: flex; align-items: center; justify-content: space-between;
         }
 
+        /* Fixed Red Line */
         #red-line {
+            position: absolute;
             width: 100%; height: 2px;
             background: var(--red);
-            box-shadow: 0 0 10px var(--red);
+            box-shadow: 0 0 8px var(--red);
             z-index: 11;
         }
 
+        /* White T-Markers inside green box */
+        .t-marker {
+            width: 20px; height: 30px;
+            border: 3px solid white;
+            z-index: 12;
+            position: relative;
+        }
+        .t-left { border-right: none; border-top: none; border-bottom: none; margin-left: 5px; }
+        .t-right { border-left: none; border-top: none; border-bottom: none; margin-right: 5px; }
+        
+        /* Red extensions on T-markers */
+        .t-marker::after {
+            content: '';
+            position: absolute;
+            top: 50%; width: 10px; height: 2px;
+            background: var(--red);
+        }
+        .t-left::after { left: 0; }
+        .t-right::after { right: 0; }
+
         .success-flash { background: var(--green) !important; box-shadow: 0 0 20px var(--green) !important; }
 
-        /* Buttons */
-        .controls { display: flex; gap: 10px; width: 100%; max-width: 360px; margin-bottom: 20px; }
-        button { flex: 1; height: 55px; border: none; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; color: white; }
-        #start-btn { background: #1E3A1E; color: #4CAF50; }
-        #stop-btn { background: #3D1A1A; color: #FF3B30; }
+        .controls { display: flex; gap: 8px; width: 100%; max-width: 360px; margin-bottom: 15px; }
+        button { flex: 1; height: 50px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; }
+        #start-btn { background: #1E3A1E; color: var(--green); }
+        #stop-btn { background: #3D1A1A; color: var(--red); }
         #dl-btn { background: #1A73E8; }
 
-        /* Table UI from image */
         .table-wrap { width: 100%; max-width: 360px; background: var(--ui-panel); border-radius: 12px; overflow: hidden; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #252525; color: var(--green); padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #2A2A2A; }
-        .img-cell { width: 70px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #333; background: white; }
+        th { background: #252525; color: var(--green); padding: 10px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #2A2A2A; text-align: center; }
+        .img-cell { width: 70px; height: 40px; object-fit: cover; border-radius: 4px; background: white; }
     </style>
 </head>
 <body>
 
-    <h2 style="font-size: 18px; letter-spacing: 1px; margin-bottom: 20px;">PRECISION SCANNER <span style="font-size: 10px; opacity: 0.5;">V2.1</span></h2>
+    <h3 style="margin: 10px 0;">PRECISION SCANNER <span style="font-size: 10px; opacity: 0.5;">V2.2</span></h3>
 
     <div id="scanner-viewport">
         <div id="reader"></div>
         <div id="mask"></div>
-        <div id="green-frame">
+        <div id="green-box">
+            <div class="t-marker t-left"></div>
             <div id="red-line"></div>
+            <div class="t-marker t-right"></div>
         </div>
     </div>
 
@@ -126,41 +147,34 @@
         let isLocked = false;
 
         async function onScan(text, result) {
-            if (isLocked) return;
-            if (scans.some(s => s.val === text)) return;
+            // Strict Duplicate Check
+            if (isLocked || scans.some(s => s.val === text)) return;
 
             isLocked = true;
             document.getElementById('red-line').classList.add('success-flash');
 
-            // 1. Precise Crop (80px height center)
+            // 1. Precise Crop
             const video = document.querySelector('video');
             const cropCvs = document.getElementById('crop-cvs');
             const ctx = cropCvs.getContext('2d');
-            
-            const vW = video.videoWidth;
-            const vH = video.videoHeight;
-            const cropW = vW * 0.8;
-            const cropH = vH * 0.2; // Matching the green box
-            
-            cropCvs.width = cropW;
-            cropCvs.height = cropH;
+            const vW = video.videoWidth; const vH = video.videoHeight;
+            const cropW = vW * 0.8; const cropH = vH * 0.2;
+            cropCvs.width = cropW; cropCvs.height = cropH;
             ctx.drawImage(video, (vW-cropW)/2, (vH-cropH)/2, cropW, cropH, 0, 0, cropW, cropH);
             const photo = cropCvs.toDataURL('image/jpeg', 0.8);
 
-            // 2. JsBarcode (Width: 4, Height: 60)
+            // 2. JsBarcode
             const barCvs = document.getElementById('barcode-cvs');
-            try {
-                JsBarcode(barCvs, text, { format: "CODE128", width: 4, height: 60, displayValue: true });
-            } catch(e) {}
+            try { JsBarcode(barCvs, text, { format: "CODE128", width: 4, height: 60, displayValue: true }); } catch(e) {}
             const barImg = barCvs.toDataURL('image/png');
 
-            // 3. Update UI
+            // 3. UI Update
             const entry = { sno: scans.length + 1, val: text, photo: photo, bar: barImg };
             scans.push(entry);
 
             const row = `<tr>
                 <td>${entry.sno}</td>
-                <td><b>${entry.val}</b></td>
+                <td style="font-weight:bold">${entry.val}</td>
                 <td><img src="${photo}" class="img-cell"></td>
                 <td><img src="${barImg}" class="img-cell"></td>
             </tr>`;
@@ -169,20 +183,12 @@
             setTimeout(() => {
                 document.getElementById('red-line').classList.remove('success-flash');
                 isLocked = false;
-            }, 1000);
+            }, 1200); // 1.2s cooldown to prevent accidental rapid rescans
         }
 
         async function start() {
             scanner = new Html5Qrcode("reader");
-            const config = { 
-                fps: 20, 
-                qrbox: { width: 300, height: 80 }, // Logic matches the visual red line
-                aspectRatio: 1.0,
-                videoConstraints: { 
-                    facingMode: "environment",
-                    focusMode: "continuous" // Force mobile focus
-                }
-            };
+            const config = { fps: 25, qrbox: { width: 300, height: 80 }, aspectRatio: 1.0 };
             await scanner.start({ facingMode: "environment" }, config, onScan);
             document.getElementById('start-btn').disabled = true;
             document.getElementById('stop-btn').disabled = false;
@@ -199,25 +205,23 @@
         async function exportExcel() {
             if (!scans.length) return;
             const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Data');
+            const ws = wb.addWorksheet('Scans');
             ws.columns = [
-                { header: 'SNo', key: 'sno', width: 10 },
-                { header: 'Value', key: 'val', width: 25 },
-                { header: 'Capture', key: 'photo', width: 30 },
-                { header: 'Barcode', key: 'bar', width: 30 }
+                { header: 'SNo', key: 'sno', width: 8 },
+                { header: 'Barcode', key: 'val', width: 25 },
+                { header: 'Photo', key: 'photo', width: 25 },
+                { header: 'Gen-Barcode', key: 'bar', width: 25 }
             ];
-
             for (const s of scans) {
                 const row = ws.addRow({ sno: s.sno, val: s.val });
                 row.height = 70;
                 const pId = wb.addImage({ base64: s.photo, extension: 'jpeg' });
                 const bId = wb.addImage({ base64: s.bar, extension: 'png' });
-                ws.addImage(pId, { tl: { col: 2, row: row.number - 1 }, ext: { width: 150, height: 60 } });
-                ws.addImage(bId, { tl: { col: 3, row: row.number - 1 }, ext: { width: 150, height: 60 } });
+                ws.addImage(pId, { tl: { col: 2, row: row.number-1 }, ext: { width: 140, height: 60 } });
+                ws.addImage(bId, { tl: { col: 3, row: row.number-1 }, ext: { width: 140, height: 60 } });
             }
-
             const buf = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buf]), "Barcode_Report.xlsx");
+            saveAs(new Blob([buf]), "Barcode_Report_V2.2.xlsx");
         }
 
         document.getElementById('start-btn').onclick = start;
