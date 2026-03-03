@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ZXing Pro Scanner</title>
+    <title>FAS Code Scanner</title>
 
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
@@ -15,12 +15,11 @@
             --primary: #007AFF;
             --success: #34C759;
             --danger: #FF3B30;
-            --safe-top: env(safe-area-inset-top, 0px);
         }
 
         body {
             font-family: -apple-system, sans-serif;
-            background: #F2F2F7;
+            background: #ffffff;
             color: #000;
             margin: 0;
             display: flex;
@@ -30,27 +29,27 @@
             overflow: hidden;
         }
 
-        /* 1. Camera Section */
+        /* 1. Camera Viewport */
         #scanner-container {
             position: relative;
             width: 100%;
-            height: 40%;
+            height: 35%;
             background: #000;
             flex-shrink: 0;
-            margin-top: var(--safe-top);
+            overflow: hidden;
         }
 
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Professional Overlay */
-        #frame {
+        /* Green Box UI - Exactly what we crop */
+        #green-frame {
             position: absolute;
             top: 50%; left: 50%;
-            width: 70%; height: 40%;
+            width: 280px; height: 100px;
             transform: translate(-50%, -50%);
-            border: 2px solid var(--success);
-            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5);
+            border: 3px solid var(--success);
             border-radius: 8px;
+            z-index: 10;
             pointer-events: none;
         }
 
@@ -58,59 +57,74 @@
             position: absolute;
             width: 100%; height: 2px;
             background: var(--danger);
-            box-shadow: 0 0 10px var(--danger);
-            animation: move 2.5s infinite ease-in-out;
+            box-shadow: 0 0 8px var(--danger);
+            animation: move 2s infinite linear;
         }
 
-        @keyframes move { 
-            0%, 100% { top: 10%; } 
-            50% { top: 90%; } 
-        }
+        @keyframes move { 0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; } }
 
-        /* 2. Control Bar */
+        /* 2. Controls - Simple & Flat */
         .controls {
             display: flex;
             gap: 10px;
-            padding: 12px;
-            background: #fff;
-            border-bottom: 1px solid #D1D1D6;
+            padding: 15px;
+            background: #ffffff;
+            border-bottom: 1px solid #eeeeee;
             flex-shrink: 0;
         }
 
         button {
-            flex: 1; height: 44px; border: none; border-radius: 10px;
-            font-weight: 600; font-size: 14px; cursor: pointer; color: white;
-            transition: opacity 0.2s;
+            flex: 1; height: 46px; border: none; border-radius: 8px;
+            font-weight: 700; cursor: pointer; color: white;
+            font-size: 14px;
         }
         #btn-start { background: var(--success); }
         #btn-stop { background: var(--danger); }
         #btn-excel { background: var(--primary); }
         button:disabled { opacity: 0.3; }
 
-        /* 3. List Table */
+        /* 3. Table - No Shadows, Pure White */
         .list-container {
             flex-grow: 1;
             overflow-y: auto;
-            background: #fff;
+            background: #ffffff;
         }
 
-        table { width: 100%; border-collapse: collapse; }
-        th { 
-            position: sticky; top: 0; background: #F2F2F7; 
-            padding: 10px; font-size: 12px; color: #8E8E93; 
-            text-align: center; border-bottom: 1px solid #D1D1D6;
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            box-shadow: none; /* Shadow removed */
         }
-        td { padding: 12px 8px; border-bottom: 1px solid #E5E5EA; text-align: center; font-size: 14px; }
+
+        th { 
+            position: sticky; top: 0; 
+            background: #f9f9f9; 
+            padding: 12px; font-size: 11px; 
+            color: #999; text-transform: uppercase;
+            border-bottom: 1px solid #eee;
+            z-index: 20;
+        }
+
+        td { 
+            padding: 10px; 
+            border-bottom: 1px solid #f0f0f0; 
+            text-align: center; font-size: 14px;
+            background: #fff; /* Ensuring pure white bg */
+        }
         
-        .barcode-img { width: 80px; height: 40px; border-radius: 4px; border: 1px solid #eee; }
-        .val-badge { background: #E5E5EA; padding: 4px 8px; border-radius: 6px; font-family: monospace; }
+        .crop-img { 
+            width: 90px; height: 45px; 
+            object-fit: cover; 
+            border-radius: 4px; 
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
 
     <div id="scanner-container">
         <video id="video"></video>
-        <div id="frame">
+        <div id="green-frame">
             <div id="scan-line"></div>
         </div>
     </div>
@@ -125,16 +139,18 @@
         <table>
             <thead>
                 <tr>
-                    <th>S.No</th>
-                    <th>Barcode Value</th>
-                    <th>Image</th>
+                    <th>SNo</th>
+                    <th>Value</th>
+                    <th>Box Crop</th>
+                    <th>Barcode</th>
                 </tr>
             </thead>
             <tbody id="scan-body"></tbody>
         </table>
     </div>
 
-    <canvas id="hidden-canvas" style="display:none;"></canvas>
+    <canvas id="crop-canvas" style="display:none;"></canvas>
+    <canvas id="bar-canvas" style="display:none;"></canvas>
 
     <script>
         const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -143,9 +159,9 @@
         const stopBtn = document.getElementById('btn-stop');
         const excelBtn = document.getElementById('btn-excel');
 
-        let scannedData = [];
+        let dataStore = [];
         let scannedSet = new Set();
-        let isCooldown = false;
+        let isBusy = false;
 
         async function start() {
             startBtn.disabled = true;
@@ -154,35 +170,56 @@
             codeReader.decodeFromConstraints({
                 video: { facingMode: "environment" }
             }, "video", (result, err) => {
-                if (result && !isCooldown) {
+                if (result && !isBusy) {
                     const text = result.text;
-                    
                     if (scannedSet.has(text)) return;
                     
-                    // Logic Start
-                    isCooldown = true;
+                    isBusy = true;
                     scannedSet.add(text);
                     if (navigator.vibrate) navigator.vibrate(50);
 
-                    // Generate Barcode Image
-                    const canvas = document.getElementById('hidden-canvas');
-                    JsBarcode(canvas, text, { format: "CODE128", width: 2, height: 50 });
-                    const imgData = canvas.toDataURL("image/png");
+                    // --- 1. PRECISE CROP LOGIC ---
+                    const video = document.getElementById('video');
+                    const canvas = document.getElementById('crop-canvas');
+                    const ctx = canvas.getContext('2d');
 
-                    // Save Data
-                    const entry = { sno: scannedData.length + 1, val: text, img: imgData };
-                    scannedData.push(entry);
+                    // Mapping UI frame to Video resolution
+                    const vW = video.videoWidth;
+                    const vH = video.videoHeight;
+                    const containerW = video.offsetWidth;
+                    const containerH = video.offsetHeight;
 
-                    // Update UI
+                    const scale = vW / containerW;
+
+                    // UI box size is 280x100
+                    const cropW = 280 * scale;
+                    const cropH = 100 * scale;
+                    const startX = (vW - cropW) / 2;
+                    const startY = (vH - cropH) / 2;
+
+                    canvas.width = cropW;
+                    canvas.height = cropH;
+                    ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+                    const cropData = canvas.toDataURL("image/jpeg", 0.8);
+
+                    // --- 2. BARCODE GEN ---
+                    const barCanvas = document.getElementById('bar-canvas');
+                    JsBarcode(barCanvas, text, { format: "CODE128", width: 2, height: 50 });
+                    const barImgData = barCanvas.toDataURL("image/png");
+
+                    // --- 3. UI UPDATE ---
+                    const entry = { sno: dataStore.length + 1, val: text, crop: cropData, bar: barImgData };
+                    dataStore.push(entry);
+
                     const row = `<tr>
                         <td>${entry.sno}</td>
-                        <td><span class="val-badge">${entry.val}</span></td>
-                        <td><img src="${imgData}" class="barcode-img"></td>
+                        <td style="font-weight:bold">${entry.val}</td>
+                        <td><img src="${cropData}" class="crop-img"></td>
+                        <td><img src="${barImgData}" class="crop-img"></td>
                     </tr>`;
                     scanBody.insertAdjacentHTML('afterbegin', row);
 
-                    // Cooldown Reset
-                    setTimeout(() => { isCooldown = false; }, 1000);
+                    setTimeout(() => { isBusy = false; }, 1200);
                 }
             });
         }
@@ -194,30 +231,30 @@
         }
 
         async function downloadExcel() {
-            if (scannedData.length === 0) return alert("List is empty!");
-            
+            if (dataStore.length === 0) return;
             const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet("Barcodes");
+            const ws = wb.addWorksheet("Scans");
 
             ws.columns = [
-                { header: "S.No", key: "sno", width: 10 },
-                { header: "Barcode Value", key: "val", width: 30 },
-                { header: "Image", key: "img", width: 30 }
+                { header: "SNo", key: "sno", width: 8 },
+                { header: "Barcode Value", key: "val", width: 25 },
+                { header: "Photo", width: 25 },
+                { header: "Barcode Gen", width: 25 }
             ];
 
-            for (const [i, item] of scannedData.entries()) {
+            for (const [i, item] of dataStore.entries()) {
                 const row = ws.addRow({ sno: item.sno, val: item.val });
-                row.height = 60;
+                row.height = 70;
                 
-                const imageId = wb.addImage({ base64: item.img, extension: 'png' });
-                ws.addImage(imageId, {
-                    tl: { col: 2, row: i + 1 },
-                    ext: { width: 180, height: 60 }
-                });
+                const cropId = wb.addImage({ base64: item.crop, extension: 'jpeg' });
+                const barId = wb.addImage({ base64: item.bar, extension: 'png' });
+
+                ws.addImage(cropId, { tl: { col: 2, row: i + 1 }, ext: { width: 140, height: 60 } });
+                ws.addImage(barId, { tl: { col: 3, row: row.number - 1 }, ext: { width: 140, height: 60 } });
             }
 
             const buffer = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), "Barcode_Report.xlsx");
+            saveAs(new Blob([buffer]), "Scan_Report.xlsx");
         }
 
         startBtn.onclick = start;
