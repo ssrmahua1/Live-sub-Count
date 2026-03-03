@@ -2,183 +2,93 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Complete Barcode Scanner System</title>
-
-<script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<title>Stable Barcode Scanner</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #111;
-    color: white;
-}
-
-#container {
-    position: relative;
-    display: inline-block;
-    margin-top: 20px;
-}
-
-video {
-    width: 400px;
-    border-radius: 10px;
-}
-
-#frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 300px;
-    height: 150px;
-    transform: translate(-50%, -50%);
-    border: 3px solid #00ff00;
-    border-radius: 12px;
-}
-
-#scan-line {
-    position: absolute;
-    width: 300px;
-    height: 2px;
-    background: #00ff00;
-    left: 50%;
-    top: 50%;
-    animation: scanMove 2s infinite linear;
-}
-
-@keyframes scanMove {
-    0% { transform: translate(-50%, -70px); }
-    50% { transform: translate(-50%, 70px); }
-    100% { transform: translate(-50%, -70px); }
-}
-
-button {
-    padding: 10px 20px;
-    margin: 10px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-canvas {
-    display: none;
-}
+body { font-family: Arial; text-align:center; }
+#reader { width:350px; margin:auto; }
+button, select { padding:8px 15px; margin:5px; }
+table { margin:20px auto; border-collapse:collapse; }
+th,td { border:1px solid black; padding:6px 10px; }
 </style>
 </head>
-
 <body>
 
-<h2>⚡ Complete Barcode Scanner System</h2>
+<h2>Stable Barcode Scanner</h2>
 
-<button onclick="startScan()">Start Scan</button>
-<button onclick="stopScan()">Stop Scan</button>
+<select id="cameraSelect"></select>
+<button onclick="startScan()">Start</button>
+<button onclick="stopScan()">Stop</button>
 <button onclick="downloadExcel()">Download Excel</button>
 
-<div id="container">
-    <video id="video"></video>
-    <div id="frame"></div>
-    <div id="scan-line"></div>
-</div>
+<div id="reader"></div>
 
-<canvas id="barcodeCanvas"></canvas>
+<table id="table">
+<tr>
+<th>S.No</th>
+<th>Barcode</th>
+</tr>
+</table>
 
 <script>
 
-let codeReader = new ZXing.BrowserMultiFormatReader();
-let scannedData = [];
+let html5Qr;
+let serial = 1;
 let scannedSet = new Set();
-let cooldown = false;
-let scanning = false;
+let scannedData = [];
 
-async function startScan() {
+async function loadCameras() {
+    const devices = await Html5Qrcode.getCameras();
+    const select = document.getElementById("cameraSelect");
 
-    if (scanning) return;
+    devices.forEach(device => {
+        const option = document.createElement("option");
+        option.value = device.id;
+        option.text = device.label;
+        select.appendChild(option);
+    });
+}
 
-    const devices = await codeReader.listVideoInputDevices();
-    const selectedDeviceId = devices[0].deviceId;
+loadCameras();
 
-    scanning = true;
+function startScan() {
+    const cameraId = document.getElementById("cameraSelect").value;
+    html5Qr = new Html5Qrcode("reader");
 
-    codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
-        if (result && !cooldown) {
+    html5Qr.start(
+        cameraId,
+        { fps: 20, qrbox: { width: 250, height: 120 } },
+        (decodedText) => {
 
-            let text = result.text;
+            if (scannedSet.has(decodedText)) return;
 
-            if (scannedSet.has(text)) return;
-
-            scannedSet.add(text);
-            cooldown = true;
-
-            // Generate Barcode Image
-            let canvas = document.getElementById("barcodeCanvas");
-
-            JsBarcode(canvas, text, {
-                format: "CODE128",
-                width: 2,
-                height: 80,
-                displayValue: true
-            });
-
-            let imageBase64 = canvas.toDataURL("image/png");
+            scannedSet.add(decodedText);
 
             scannedData.push({
-                value: text,
-                image: imageBase64
+                "S.No": serial,
+                "Barcode": decodedText
             });
 
-            setTimeout(() => cooldown = false, 800);
+            let row = document.getElementById("table").insertRow();
+            row.insertCell(0).innerHTML = serial;
+            row.insertCell(1).innerHTML = decodedText;
+
+            serial++;
         }
-    });
+    );
 }
 
 function stopScan() {
-    codeReader.reset();
-    scanning = false;
+    if (html5Qr) html5Qr.stop();
 }
 
-async function downloadExcel() {
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Barcodes");
-
-    sheet.columns = [
-        { header: "S.No", width: 10 },
-        { header: "Barcode Value", width: 25 },
-        { header: "Barcode Image", width: 35 }
-    ];
-
-    for (let i = 0; i < scannedData.length; i++) {
-
-        const row = sheet.addRow([
-            i + 1,
-            scannedData[i].value,
-            ""
-        ]);
-
-        row.height = 70;
-
-        const imageId = workbook.addImage({
-            base64: scannedData[i].image,
-            extension: 'png'
-        });
-
-        sheet.addImage(imageId, {
-            tl: { col: 2, row: i + 1 },
-            ext: { width: 220, height: 70 }
-        });
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-
-    const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    });
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "Barcode_With_Image.xlsx";
-    link.click();
+function downloadExcel() {
+    let ws = XLSX.utils.json_to_sheet(scannedData);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
+    XLSX.writeFile(wb, "Barcodes.xlsx");
 }
 
 </script>
