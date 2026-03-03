@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Auto Serial Barcode Scanner</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body { font-family: Arial; text-align: center; }
+#reader { width: 350px; margin: auto; }
+table { margin: 20px auto; border-collapse: collapse; }
+th, td { border: 1px solid black; padding: 6px 12px; }
+button { padding: 10px 20px; margin: 10px; }
+</style>
+</head>
+
+<body>
+
+<h2>📷 Page Barcode Auto Scanner</h2>
+
+<div id="reader"></div>
+
+<h3>Scanned List (Top to Bottom Serial)</h3>
+
+<table id="table">
+<tr>
+<th>S.No</th>
+<th>Barcode</th>
+<th>Date</th>
+<th>Time</th>
+</tr>
+</table>
+
+<button onclick="downloadExcel()">Download Excel</button>
+<button onclick="resetData()">Reset</button>
+
+<script>
+let serial = 1;
+let scannedSet = new Set();
+let scannedArray = [];
+
+function onScanSuccess(decodedText) {
+
+    // Duplicate avoid
+    if (scannedSet.has(decodedText)) return;
+
+    scannedSet.add(decodedText);
+
+    let now = new Date();
+    let date = now.toLocaleDateString();
+    let time = now.toLocaleTimeString();
+
+    scannedArray.push({
+        "S.No": serial,
+        "Barcode": decodedText,
+        "Date": date,
+        "Time": time
+    });
+
+    let table = document.getElementById("table");
+    let row = table.insertRow();
+    row.insertCell(0).innerHTML = serial;
+    row.insertCell(1).innerHTML = decodedText;
+    row.insertCell(2).innerHTML = date;
+    row.insertCell(3).innerHTML = time;
+
+    serial++;
+}
+
+let scanner = new Html5QrcodeScanner(
+    "reader",
+    { fps: 15, qrbox: 250, rememberLastUsedCamera: true }
+);
+
+scanner.render(onScanSuccess);
+
+function downloadExcel() {
+    let ws = XLSX.utils.json_to_sheet(scannedArray);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
+    XLSX.writeFile(wb, "Serial_Barcodes.xlsx");
+}
+
+function resetData() {
+    location.reload();
+}
+</script>
+
+</body>
+</html>
