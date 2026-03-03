@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Pro Barcode Scanner</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body { font-family: Arial; text-align: center; background:#f4f4f4; }
+
+#reader {
+    width: 350px;
+    margin: auto;
+}
+
+.frame-box {
+    border: 4px solid red;
+    width: 250px;
+    height: 120px;
+    margin: 10px auto;
+    border-radius: 10px;
+}
+
+table {
+    margin: 20px auto;
+    border-collapse: collapse;
+    background:white;
+}
+
+th, td {
+    border: 1px solid black;
+    padding: 6px 12px;
+}
+
+button {
+    padding: 10px 20px;
+    margin: 10px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>⚡ Fast Barcode Scanner (Frame Mode)</h2>
+
+<div class="frame-box"></div>
+<div id="reader"></div>
+
+<h3>Scanned List</h3>
+
+<table id="table">
+<tr>
+<th>S.No</th>
+<th>Barcode</th>
+<th>Date</th>
+<th>Time</th>
+</tr>
+</table>
+
+<button onclick="downloadExcel()">Download Excel</button>
+<button onclick="resetData()">Reset</button>
+
+<script>
+
+let serial = 1;
+let lastScanned = "";
+let scannedSet = new Set();
+let scannedArray = [];
+let scanCooldown = false;
+
+function onScanSuccess(decodedText) {
+
+    // Prevent continuous same barcode scan
+    if (decodedText === lastScanned || scanCooldown) return;
+
+    if (scannedSet.has(decodedText)) return;
+
+    scanCooldown = true;
+    lastScanned = decodedText;
+    scannedSet.add(decodedText);
+
+    let now = new Date();
+    let date = now.toLocaleDateString();
+    let time = now.toLocaleTimeString();
+
+    scannedArray.push({
+        "S.No": serial,
+        "Barcode": decodedText,
+        "Date": date,
+        "Time": time
+    });
+
+    let table = document.getElementById("table");
+    let row = table.insertRow();
+    row.insertCell(0).innerHTML = serial;
+    row.insertCell(1).innerHTML = decodedText;
+    row.insertCell(2).innerHTML = date;
+    row.insertCell(3).innerHTML = time;
+
+    serial++;
+
+    // 1.5 second cooldown
+    setTimeout(() => {
+        scanCooldown = false;
+        lastScanned = "";
+    }, 1500);
+}
+
+let scanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 25, // High speed scanning
+        qrbox: { width: 250, height: 120 }, // Barcode frame size
+        rememberLastUsedCamera: true,
+        aspectRatio: 1.7778
+    }
+);
+
+scanner.render(onScanSuccess);
+
+function downloadExcel() {
+    let ws = XLSX.utils.json_to_sheet(scannedArray);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Barcodes");
+    XLSX.writeFile(wb, "Fast_Scanned_Barcodes.xlsx");
+}
+
+function resetData() {
+    location.reload();
+}
+
+</script>
+
+</body>
+</html>
