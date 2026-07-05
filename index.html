@@ -1,265 +1,2058 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>FAS Scanner - SSRMAHUA</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premium ID Card Generator - Rail-ID Studio</title>
+  <meta name="description" content="Generate high-fidelity, Aadhar card-sized Indian Railways ID cards featuring custom logos, dynamic QR codes, custom themes, signatures, and high-quality JPG download.">
+  
+  <!-- CDNs for fonts, canvas export, and QR code generation -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&family=Cinzel:wght@600;700;800&family=Great+Vibes&family=Montserrat:wght@500;600;700;800&family=Fira+Sans:wght@500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    /* Dashboard Reset & Design Tokens (White Theme for Page, ID Card untouched) */
+    :root {
+      --bg-primary: #ffffff; /* Pure white page background */
+      --bg-secondary: #ffffff; /* White sidebar/header */
+      --bg-card: rgba(0, 0, 0, 0.02);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --text-primary: #1f2937; /* Dark text for page */
+      --text-secondary: #4b5563; /* Grey text for page labels */
+      --accent-blue: #2563eb;
+      --accent-blue-hover: #1d4ed8;
+      --accent-red: #dc2626;
+      --accent-green: #10b981;
+      --card-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      
+      /* Default Theme Variables for ID Card (Classic Navy - UNTOUCHED) */
+      --card-primary: #0b1a30;
+      --card-primary-gradient: linear-gradient(135deg, #0b1a30 0%, #050d18 100%);
+      --card-secondary: #1d3557;
+      --card-accent-badge: #ff3b30;
+      --card-text-main: #0b3fa9;
+      --card-border-photo: #0056b3;
+      --card-badge-bg: #c9daf8;
+      --card-badge-text: #0f46a0;
+      --card-badge-border: #3d85c6;
+      --glow-color: rgba(59, 130, 246, 0.28);
+      
+      /* Light Red strip under header */
+      --card-strip-bg: #ff6b6b;
+    }
 
-    <style>
-        :root {
-            --primary: #007AFF;
-            --success: #34C759;
-            --danger: #FF3B30;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        body {
-            font-family: -apple-system, sans-serif;
-            background: #ffffff;
-            color: #000;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            height: 100dvh;
-            overflow: hidden;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
 
-        /* 1. Camera Viewport */
-        #scanner-container {
-            position: relative;
-            width: 100%;
-            height: 35%;
-            background: #000;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
+    header.app-header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      background-color: #ffffff;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
 
-        video { width: 100%; height: 100%; object-fit: cover; }
+    header.app-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #1d4ed8, #ef4444);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
 
-        /* Green Box UI - Exactly what we crop */
-        #green-frame {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 280px; height: 100px;
-            transform: translate(-50%, -50%);
-            border: 3px solid var(--success);
-            border-radius: 8px;
-            z-index: 10;
-            pointer-events: none;
-        }
+    header.app-header .badge {
+      background: rgba(37, 99, 235, 0.08);
+      color: #1e40af;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+    }
 
-        #scan-line {
-            position: absolute;
-            width: 100%; height: 2px;
-            background: var(--danger);
-            box-shadow: 0 0 8px var(--danger);
-            animation: move 2s infinite linear;
-        }
+    /* Main Dashboard Layout */
+    .app-container {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      flex: 1;
+      height: calc(100vh - 69px);
+      overflow: hidden;
+    }
 
-        @keyframes move { 0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; } }
+    @media (max-width: 1024px) {
+      .app-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+      body {
+        overflow-y: auto;
+      }
+    }
 
-        /* 2. Controls - Simple & Flat */
-        .controls {
-            display: flex;
-            gap: 10px;
-            padding: 15px;
-            background: #ffffff;
-            border-bottom: 1px solid #eeeeee;
-            flex-shrink: 0;
-        }
+    /* Sidebar / Controls Panel (Light background) */
+    .sidebar {
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
 
-        button {
-            flex: 1; height: 46px; border: none; border-radius: 8px;
-            font-weight: 700; cursor: pointer; color: white;
-            font-size: 14px;
-        }
-        #btn-start { background: var(--success); }
-        #btn-stop { background: var(--danger); }
-        #btn-excel { background: var(--primary); }
-        button:disabled { opacity: 0.3; }
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
 
-        /* 3. Table - No Shadows, Pure White */
-        .list-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            background: #ffffff;
-        }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            box-shadow: none; /* Shadow removed */
-        }
+    .form-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
 
-        th { 
-            position: sticky; top: 0; 
-            background: #f9f9f9; 
-            padding: 12px; font-size: 11px; 
-            color: #999; text-transform: uppercase;
-            border-bottom: 1px solid #eee;
-            z-index: 20;
-        }
+    .form-control {
+      background-color: #f9fafb;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.7rem 0.9rem;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem;
+      transition: all 0.2s ease;
+    }
 
-        td { 
-            padding: 10px; 
-            border-bottom: 1px solid #f0f0f0; 
-            text-align: center; font-size: 14px;
-            background: #fff; /* Ensuring pure white bg */
-        }
-        
-        .crop-img { 
-            width: 90px; height: 45px; 
-            object-fit: cover; 
-            border-radius: 4px; 
-            border: 1px solid #ddd;
-        }
-    </style>
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      background-color: #ffffff;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Styling Presets */
+    .styling-presets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .preset-btn {
+      background: #f3f4f6;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn.active, .preset-btn:hover {
+      background: rgba(37, 99, 235, 0.08);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .style-controls {
+      background: #f9fafb;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Color presets / themes selection */
+    .theme-presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .theme-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      background: #f9fafb;
+      border: 1px solid var(--border-color);
+      padding: 0.6rem 0.4rem;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .theme-btn:hover, .theme-btn.active {
+      background: #ffffff;
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .theme-swatch {
+      display: flex;
+      width: 32px;
+      height: 16px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .theme-swatch span {
+      flex: 1;
+      height: 100%;
+    }
+
+    /* Interactive Effects Toggles */
+    .effects-panel {
+      background: #f9fafb;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .switch-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .switch-group label {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .switch-group input[type="checkbox"] {
+      width: 38px;
+      height: 20px;
+      appearance: none;
+      background-color: #e5e7eb;
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+      transition: background-color 0.3s ease;
+      border: 1px solid var(--border-color);
+    }
+
+    .switch-group input[type="checkbox"]:checked {
+      background-color: var(--accent-blue);
+    }
+
+    .switch-group input[type="checkbox"]::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: white;
+      top: 1px;
+      left: 1px;
+      transition: left 0.3s ease;
+    }
+
+    .switch-group input[type="checkbox"]:checked::after {
+      left: 19px;
+    }
+
+    /* Image Upload Widget */
+    .file-upload-wrapper {
+      position: relative;
+      width: 100%;
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #f9fafb;
+    }
+
+    .file-upload-wrapper:hover {
+      border-color: var(--accent-blue);
+      background: rgba(37, 99, 235, 0.02);
+    }
+
+    .file-upload-wrapper input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .image-adjust-sliders {
+      margin-top: 1rem;
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    /* Save / Profile Management */
+    .profile-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-blue-hover);
+    }
+
+    .btn-secondary {
+      background-color: #ffffff;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-secondary:hover {
+      background-color: #f9fafb;
+    }
+
+    .saved-profiles-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .profile-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f9fafb;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .profile-item-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .profile-item-delete {
+      color: var(--accent-red);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+    }
+
+    .profile-item-delete:hover {
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    /* Main Preview Workspace */
+    .preview-workspace {
+      background-color: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem;
+      overflow-y: auto;
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    .preview-header {
+      text-align: center;
+    }
+
+    .preview-header h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 0.35rem;
+    }
+
+    .preview-header p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* The High Fidelity ID Card Container */
+    .id-card-container-outer {
+      perspective: 1000px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      width: 100%;
+    }
+
+    /* CR-80 Standard ID Card Dimensions (horizontal)
+       Standard ratio: 1.586. 
+       632px width x 400px height.
+    */
+    .id-card {
+      width: 632px;
+      height: 400px;
+      background-color: #ffffff;
+      color: #000000;
+      border-radius: 14px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      font-family: 'Inter', sans-serif;
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease, box-shadow 0.3s ease;
+    }
+
+    /* Optional glow shadow class */
+    .id-card.glow-effect {
+      box-shadow: 0 0 40px var(--glow-color), 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Overlay gloss shine card effect */
+    .card-gloss-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 60%, rgba(0,0,0,0.02) 100%);
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* Card Header Section */
+    .card-header {
+      height: 70px;
+      display: flex;
+      align-items: center;
+      padding: 6px 14px 4px 14px;
+      background-color: #ffffff;
+      position: relative;
+      z-index: 2;
+      border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+      background-image: radial-gradient(rgba(0,0,0,0.015) 1px, transparent 1px);
+      background-size: 8px 8px;
+    }
+
+    .header-logo-container {
+      width: 58px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 10px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+    }
+
+    .header-logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .header-text-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .header-main-title {
+      font-family: 'Cinzel', 'Times New Roman', serif;
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--card-text-main);
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Customizable Organization/Association Style Options */
+    .header-org-title {
+      font-size: 1.05rem;
+      font-weight: 750;
+      color: #e63946;
+      text-align: center;
+      margin-top: 1px;
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 3.5px;
+      line-height: 1.25;
+      letter-spacing: -0.1px;
+    }
+
+    /* Diagonal Accent Strip */
+    .diagonal-accent-strip {
+      height: 38px;
+      background: var(--card-strip-bg);
+      position: relative;
+      z-index: 1;
+      margin-top: -1px;
+      display: flex;
+      align-items: center;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+      transition: background-color 0.2s ease;
+    }
+
+    /* Slanted cut-out on the right */
+    .diagonal-accent-strip::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 140px;
+      background: var(--card-strip-bg);
+      transform: skewX(-25deg);
+      transform-origin: bottom right;
+      z-index: -1;
+      transition: background-color 0.2s ease;
+    }
+
+    .diagonal-accent-strip-inner {
+      padding-left: 14px;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    /* Badge for Station Name - UPGRADED text size */
+    .station-badge {
+      background-color: var(--card-badge-bg);
+      color: var(--card-badge-text);
+      padding: 4px 16px;
+      border-radius: 8px;
+      font-size: 1.15rem; /* Upgraded from 1.05rem */
+      font-weight: 800;
+      border: 2px solid var(--card-badge-border);
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      display: inline-block;
+      margin-left: 4px;
+      letter-spacing: -0.2px;
+    }
+
+    /* Main Body Content */
+    .card-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 165px;
+      padding: 10px 18px 8px 22px;
+      position: relative;
+    }
+
+    /* Official Watermark Background */
+    .card-watermark {
+      position: absolute;
+      right: 35px;
+      bottom: 15px;
+      width: 250px;
+      height: 250px;
+      opacity: 0.07;
+      z-index: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-watermark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: grayscale(100%);
+    }
+
+    .details-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      z-index: 1;
+      padding-top: 4px;
+      position: relative;
+    }
+
+    /* Identity Card Title Badge - UPGRADED text size */
+    .identity-card-title-badge {
+      align-self: flex-start;
+      background-color: var(--card-accent-badge);
+      color: #ffffff;
+      padding: 4px 22px;
+      border-radius: 6px;
+      font-family: 'Cinzel', 'Times New Roman', serif;
+      font-size: 1.22rem; /* Upgraded from 1.1rem */
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      margin-left: 55px; /* Shifted left to balance larger text */
+      margin-bottom: 10px;
+      box-shadow: 0 2.5px 6px rgba(230, 57, 70, 0.2);
+      text-transform: uppercase;
+    }
+
+    /* Details Layout (Grid of labels and values) - UPGRADED text sizes and spacing */
+    .details-grid {
+      display: grid;
+      grid-template-columns: 132px 10px 1fr; /* Widened slightly from 122px to fit larger labels */
+      row-gap: 5px;
+      font-size: 1.25rem; /* Upgraded from 1.15rem */
+      color: #111827;
+      font-family: 'Inter', sans-serif;
+      line-height: 1.25;
+    }
+
+    .details-label {
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+      color: #000000;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      font-size: 1.22rem; /* Upgraded from 1.12rem */
+    }
+
+    .details-colon {
+      font-weight: 700;
+      color: #000000;
+    }
+
+    .details-value {
+      font-weight: 700; /* Made slightly bolder */
+      color: #111827;
+      padding-left: 2px;
+    }
+
+    /* Formatting for fields like issue date */
+    .details-value.issue-date-val {
+      font-weight: 800;
+      font-size: 1.12rem; /* Upgraded from 1.02rem */
+    }
+
+    /* Authority Signature Area (Bottom Left of details) */
+    .signature-area {
+      margin-top: auto;
+      padding-top: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-left: 55px;
+    }
+    
+    .signature-line {
+      width: 140px;
+      border-top: 1.5px dashed rgba(0, 0, 0, 0.4);
+      margin-top: 2px;
+    }
+
+    .signature-font {
+      font-family: 'Great Vibes', cursive;
+      font-size: 1.95rem; /* Upgraded from 1.8rem */
+      color: var(--card-primary);
+      line-height: 0.85;
+      height: 28px;
+    }
+
+    .signature-title {
+      font-size: 0.72rem; /* Upgraded from 0.65rem */
+      font-weight: 850;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    /* Photo and QR Code Column Section (Stacked layout) */
+    .photo-qr-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      z-index: 1;
+      position: relative;
+      padding-top: 2px;
+      gap: 8px;
+    }
+
+    /* Photo Frame */
+    .photo-frame {
+      width: 135px;
+      height: 175px;
+      border: 3px solid var(--card-border-photo);
+      border-radius: 9px;
+      overflow: hidden;
+      background-color: #f3f4f6;
+      position: relative;
+      box-shadow: 0 3px 6px rgba(0, 86, 179, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Uploaded Image Styles */
+    .uploaded-photo-preview {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform-origin: center center;
+      cursor: grab;
+    }
+
+    .uploaded-photo-preview:active {
+      cursor: grabbing;
+    }
+
+    /* Icon if no image uploaded */
+    .no-photo-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      color: #9ca3af;
+      text-align: center;
+      padding: 0.5rem;
+    }
+
+    .no-photo-placeholder svg {
+      width: 28px;
+      height: 28px;
+      stroke: #cbd5e1;
+    }
+
+    .no-photo-placeholder span {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Photo Column Section */
+    .photo-qr-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      position: relative;
+    }
+
+    /* Header QR Code Container (Top Right) */
+    .header-qr-container {
+      width: 58px;
+      height: 58px;
+      border-radius: 6px;
+      background: #ffffff;
+      padding: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 10px;
+    }
+
+    .header-qr-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Card Footer Section */
+    .card-footer {
+      height: 34px;
+      background: var(--card-primary-gradient);
+      position: relative;
+      overflow: hidden;
+      margin-top: auto;
+      z-index: 2;
+      border-top: 2px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Slanted white decoration line on the footer */
+    .card-footer::after {
+      content: '';
+      position: absolute;
+      right: 50px;
+      top: -10px;
+      bottom: -10px;
+      width: 15px;
+      background-color: #ffffff;
+      transform: skewX(-30deg);
+    }
+
+    .card-footer::before {
+      content: '';
+      position: absolute;
+      right: -30px;
+      top: 0;
+      bottom: 0;
+      width: 100px;
+      background-color: #ffffff;
+      transform: skewX(-30deg);
+    }
+
+    /* Toast Notification for premium UI feedback */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: var(--accent-green);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Utility action buttons below preview */
+    .preview-controls {
+      display: flex;
+      gap: 1rem;
+    }
+
+    /* Printing styles override (UPGRADED text sizes mapped to physical units) */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .preview-workspace, .id-card-container-outer, .id-card, .id-card * {
+        visibility: visible;
+      }
+      .preview-workspace {
+        position: absolute;
+        left: 0;
+        top: 0;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        display: block;
+      }
+      .id-card-container-outer {
+        margin: 0;
+        padding: 0;
+      }
+      .id-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 3.375in;
+        height: 2.125in;
+        border-radius: 0.08in;
+      }
+      
+      .card-header {
+        height: 0.40in;
+        padding: 0.03in 0.08in;
+      }
+      .header-logo-container {
+        width: 0.34in;
+        height: 0.34in;
+        margin-right: 0.04in;
+      }
+      .header-main-title {
+        font-size: 0.185in;
+      }
+      .header-org-title {
+        font-size: 0.072in;
+        margin-top: 0px;
+        text-underline-offset: 1.5px;
+      }
+      .diagonal-accent-strip {
+        height: 0.22in;
+      }
+      .station-badge {
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.084in; /* Upgraded from 0.076in */
+        border-width: 1px;
+        margin-left: 2px;
+      }
+      .card-body {
+        grid-template-columns: 1fr 0.95in;
+        padding: 0.05in 0.08in 0.04in 0.1in;
+      }
+      .identity-card-title-badge {
+        padding: 1px 8px;
+        border-radius: 3px;
+        font-size: 0.084in; /* Upgraded from 0.076in */
+        margin-left: 0.35in;
+        margin-bottom: 0.04in;
+      }
+      .details-grid {
+        grid-template-columns: 0.76in 0.08in 1fr; /* Widened slightly */
+        row-gap: 2.2px;
+        font-size: 0.092in; /* Upgraded from 0.085in */
+      }
+      .details-label {
+        font-size: 0.090in; /* Upgraded from 0.082in */
+        letter-spacing: 0.1px;
+      }
+      .details-value.issue-date-val {
+        font-size: 0.082in; /* Upgraded from 0.075in */
+      }
+      
+      .signature-area {
+        margin-left: 0.35in;
+      }
+      .signature-font {
+        font-size: 0.14in;
+        height: 0.15in;
+      }
+      .signature-line {
+        width: 0.85in;
+      }
+      .signature-title {
+        font-size: 0.047in; /* Upgraded from 0.042in */
+      }
+
+      .photo-qr-column {
+        gap: 4px;
+      }
+      .photo-frame {
+        width: 0.78in;
+        height: 1.00in;
+        border-width: 1.5px;
+        border-radius: 5px;
+      }
+      .header-qr-container {
+        width: 0.34in;
+        height: 0.34in;
+        border-radius: 3px;
+        padding: 1px;
+        border-width: 0.5px;
+        margin-left: 0.04in;
+      }
+      
+      .card-footer {
+        height: 0.20in;
+      }
+      .card-watermark {
+        width: 1.4in;
+        height: 1.4in;
+        right: 0.15in;
+        bottom: 0.08in;
+      }
+      .preview-controls, .sidebar, header.app-header, .preview-header {
+        display: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
-    <div id="scanner-container">
-        <video id="video"></video>
-        <div id="green-frame">
-            <div id="scan-line"></div>
+  <!-- App Header -->
+  <header class="app-header">
+    <h1>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <line x1="7" y1="20" x2="17" y2="20" />
+        <line x1="9" y1="16" x2="9" y2="20" />
+        <line x1="15" y1="16" x2="15" y2="20" />
+        <circle cx="12" cy="10" r="2" />
+      </svg>
+      Rail-ID Studio
+    </h1>
+    <span class="badge">v2.6 Premium (Light Theme)</span>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="app-container">
+    
+    <!-- Sidebar Controls -->
+    <aside class="sidebar">
+      
+      <!-- Card Custom Styling/Themes -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/></svg>
+          Card Theme & Style
+        </h3>
+        <div class="theme-presets" id="theme-presets">
+          <button class="theme-btn active" data-theme="navy">
+            <span class="theme-swatch">
+              <span style="background-color: #0b1a30;"></span>
+              <span style="background-color: #ff6b6b;"></span>
+            </span>
+            Classic Blue
+          </button>
+          <button class="theme-btn" data-theme="gold">
+            <span class="theme-swatch">
+              <span style="background-color: #1c1917;"></span>
+              <span style="background-color: #d4af37;"></span>
+            </span>
+            Royal Gold
+          </button>
+          <button class="theme-btn" data-theme="emerald">
+            <span class="theme-swatch">
+              <span style="background-color: #064e3b;"></span>
+              <span style="background-color: #f59e0b;"></span>
+            </span>
+            Emerald Station
+          </button>
         </div>
-    </div>
+      </section>
 
-    <div class="controls">
-        <button id="btn-start">START</button>
-        <button id="btn-stop" disabled>STOP</button>
-        <button id="btn-excel">EXCEL</button>
-    </div>
+      <!-- Advanced Visual Effects -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          Interactive Effects
+        </h3>
+        <div class="effects-panel">
+          <div class="switch-group">
+            <label for="switch-tilt">3D Perspective Tilt</label>
+            <input type="checkbox" id="switch-tilt" checked>
+          </div>
+          <div class="switch-group">
+            <label for="switch-glow">Outer Neon Glow</label>
+            <input type="checkbox" id="switch-glow">
+          </div>
+        </div>
+      </section>
 
-    <div class="list-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>SNo</th>
-                    <th>Value</th>
-                    <th>Box Crop</th>
-                    <th>Barcode</th>
-                </tr>
-            </thead>
-            <tbody id="scan-body"></tbody>
-        </table>
-    </div>
+      <!-- Organization Branding Section -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
+          Organization Branding
+        </h3>
+        
+        <div class="form-group">
+          <label for="input-main-title">Header Main Title</label>
+          <input type="text" id="input-main-title" class="form-control" value="INDIAN RAILWAY">
+        </div>
+        
+        <div class="form-group">
+          <label for="input-org-title">Sub-header / Organization Name</label>
+          <input type="text" id="input-org-title" class="form-control" value="Chandu Sanitation Workers Welfare Assosiation">
+        </div>
 
-    <canvas id="crop-canvas" style="display:none;"></canvas>
-    <canvas id="bar-canvas" style="display:none;"></canvas>
+        <div class="form-group">
+          <label>Organization Font Style</label>
+          <div class="styling-presets" id="font-presets">
+            <button class="preset-btn font-style-btn" data-font="font-cinzel">Classic</button>
+            <button class="preset-btn font-style-btn active" data-font="font-playfair">Serif</button>
+            <button class="preset-btn font-style-btn" data-font="font-outfit">Sleek</button>
+            <button class="preset-btn font-style-btn" data-font="font-greatvibes">Stylish</button>
+          </div>
+        </div>
 
-    <script>
-        const codeReader = new ZXing.BrowserMultiFormatReader();
-        const scanBody = document.getElementById('scan-body');
-        const startBtn = document.getElementById('btn-start');
-        const stopBtn = document.getElementById('btn-stop');
-        const excelBtn = document.getElementById('btn-excel');
+        <div class="style-controls">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-org-color">Text Color</label>
+              <input type="color" id="input-org-color" class="form-control" value="#e63946" style="height: 40px; padding: 4px; cursor: pointer;">
+            </div>
+            <div class="form-group" style="justify-content: center; align-items: flex-start; padding-top: 1rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
+                <input type="checkbox" id="input-org-underline" checked style="accent-color: var(--accent-blue); width: 18px; height: 18px;">
+                Underline Text
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-top: 0.75rem;">
+            <label for="input-logo-file">Change Header Logo (File Upload)</label>
+            <input type="file" id="input-logo-file" class="form-control" accept="image/*">
+            <span style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">Uploading a file prevents logo download issues.</span>
+          </div>
+        </div>
+      </section>
 
-        let dataStore = [];
-        let scannedSet = new Set();
-        let isBusy = false;
+      <!-- Card Details Section -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Cardholder Details
+        </h3>
+        
+        <div class="form-group">
+          <label for="input-station">Station/Location Name</label>
+          <input type="text" id="input-station" class="form-control" value="" placeholder="Enter Station Name (e.g. Hazrat Nizamuddin)">
+        </div>
 
-        async function start() {
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
+        <div class="form-group">
+          <label for="input-name">Full Name</label>
+          <input type="text" id="input-name" class="form-control" value="" placeholder="Enter Full Name">
+        </div>
 
-            codeReader.decodeFromConstraints({
-                video: { facingMode: "environment" }
-            }, "video", (result, err) => {
-                if (result && !isBusy) {
-                    const text = result.text;
-                    if (scannedSet.has(text)) return;
-                    
-                    isBusy = true;
-                    scannedSet.add(text);
-                    if (navigator.vibrate) navigator.vibrate(50);
+        <div class="form-row">
+          <div class="form-group">
+            <label for="input-desig">Designation</label>
+            <input type="text" id="input-desig" class="form-control" value="" placeholder="Enter Designation">
+          </div>
+          <div class="form-group">
+            <label for="input-card-no">ID Card Number</label>
+            <input type="text" id="input-card-no" class="form-control" value="" placeholder="Enter ID Card Number">
+          </div>
+        </div>
 
-                    // --- 1. PRECISE CROP LOGIC ---
-                    const video = document.getElementById('video');
-                    const canvas = document.getElementById('crop-canvas');
-                    const ctx = canvas.getContext('2d');
+        <div class="form-row">
+          <div class="form-group">
+            <label for="input-aadhar">Aadhar Number</label>
+            <input type="text" id="input-aadhar" class="form-control" value="" placeholder="Enter Aadhar Number (Auto-spacing)">
+          </div>
+          <div class="form-group">
+            <label for="input-phone">Phone Number</label>
+            <input type="text" id="input-phone" class="form-control" value="" placeholder="Enter Phone Number">
+          </div>
+        </div>
 
-                    // Mapping UI frame to Video resolution
-                    const vW = video.videoWidth;
-                    const vH = video.videoHeight;
-                    const containerW = video.offsetWidth;
-                    const containerH = video.offsetHeight;
+        <div class="form-group">
+          <label for="input-dates">Validity / Issue Date Range</label>
+          <input type="text" id="input-dates" class="form-control" value="" placeholder="Enter Validity / Issue Date Range">
+        </div>
+        
+        <div class="form-group" style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.5rem;">
+          <label for="input-sign-text">Authorized Signatory Name</label>
+          <input type="text" id="input-sign-text" class="form-control" value="Station Superintendent" placeholder="Enter Signatory Name (Authority Sign)">
+        </div>
+      </section>
 
-                    const scale = vW / containerW;
+      <!-- Photo Upload & Adjustments Section -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Profile Photo
+        </h3>
+        
+        <div class="file-upload-wrapper">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <p style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">Choose photo to upload</p>
+          <p style="font-size: 0.75rem; color: var(--text-secondary);">JPEG, PNG or SVG formats</p>
+          <input type="file" id="input-photo" accept="image/*">
+        </div>
 
-                    // UI box size is 280x100
-                    const cropW = 280 * scale;
-                    const cropH = 100 * scale;
-                    const startX = (vW - cropW) / 2;
-                    const startY = (vH - cropH) / 2;
+        <div class="image-adjust-sliders" id="image-sliders" style="display: none;">
+          <div class="slider-group">
+            <label for="slider-zoom">Zoom</label>
+            <input type="range" id="slider-zoom" min="0.5" max="3" step="0.05" value="1">
+          </div>
+          <div class="slider-group">
+            <label for="slider-pan-x">Move X</label>
+            <input type="range" id="slider-pan-x" min="-100" max="100" step="1" value="0">
+          </div>
+          <div class="slider-group">
+            <label for="slider-pan-y">Move Y</label>
+            <input type="range" id="slider-pan-y" min="-100" max="100" step="1" value="0">
+          </div>
+        </div>
+      </section>
 
-                    canvas.width = cropW;
-                    canvas.height = cropH;
-                    ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
-                    const cropData = canvas.toDataURL("image/jpeg", 0.8);
+      <!-- Saved Templates Section -->
+      <section>
+        <h3 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Saved Profiles
+        </h3>
+        <div class="profile-actions">
+          <button class="btn btn-secondary" id="btn-save-profile">
+            Save Current
+          </button>
+        </div>
+        <div class="saved-profiles-list" id="saved-profiles-container">
+          <!-- Populated by JS -->
+          <div style="font-size: 0.75rem; color: var(--text-secondary); text-align: center; padding: 1rem 0;">No profiles saved yet.</div>
+        </div>
+      </section>
 
-                    // --- 2. BARCODE GEN ---
-                    const barCanvas = document.getElementById('bar-canvas');
-                    JsBarcode(barCanvas, text, { format: "CODE128", width: 2, height: 50 });
-                    const barImgData = barCanvas.toDataURL("image/png");
+    </aside>
 
-                    // --- 3. UI UPDATE ---
-                    const entry = { sno: dataStore.length + 1, val: text, crop: cropData, bar: barImgData };
-                    dataStore.push(entry);
+    <!-- Preview Container (Right Side) -->
+    <main class="preview-workspace">
+      
+      <div class="preview-header">
+        <h2>Live ID Card Preview</h2>
+        <p>Aadhar card size (3.375" x 2.125" ratio). Enlarged text sizing. Pure white editor background.</p>
+      </div>
 
-                    const row = `<tr>
-                        <td>${entry.sno}</td>
-                        <td style="font-weight:bold">${entry.val}</td>
-                        <td><img src="${cropData}" class="crop-img"></td>
-                        <td><img src="${barImgData}" class="crop-img"></td>
-                    </tr>`;
-                    scanBody.insertAdjacentHTML('afterbegin', row);
+      <!-- Outer ID Card Container with standard CR-80 dimensions wrapper -->
+      <div class="id-card-container-outer" id="card-hover-zone">
+        
+        <!-- The Live ID Card -->
+        <div class="id-card" id="id-card-element">
+          <!-- Card reflection shine overlay -->
+          <div class="card-gloss-overlay"></div>
+          
+          <!-- Header -->
+          <div class="card-header">
+            <!-- Official Logo Image loaded via CORS-safe proxy -->
+            <div class="header-logo-container">
+              <img id="logo-img" src="https://images.weserv.nl/?url=i.pinimg.com/736x/6a/72/4b/6a724b9501764fd83a4abcd37b58144d.jpg" alt="Official Logo" crossOrigin="anonymous">
+            </div>
+            
+            <!-- Branding Text -->
+            <div class="header-text-container">
+              <div class="header-main-title" id="preview-main-title">INDIAN RAILWAY</div>
+              <div class="header-org-title font-playfair" id="preview-org-title">Chandu Sanitation Workers Welfare Assosiation</div>
+            </div>
 
-                    setTimeout(() => { isBusy = false; }, 1200);
-                }
-            });
+            <!-- QR Code (Top Right, opposite to logo) -->
+            <div class="header-qr-container">
+              <canvas id="qr-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Diagonal Accent Strip - Now light red (#ff6b6b) by default -->
+          <div class="diagonal-accent-strip">
+            <div class="diagonal-accent-strip-inner">
+              <span class="station-badge" id="preview-station" style="display: none;"></span>
+            </div>
+          </div>
+
+          <!-- Main Body -->
+          <div class="card-body">
+            
+            <!-- Official Watermark Image loaded via CORS-safe proxy -->
+            <div class="card-watermark">
+              <img id="watermark-img" src="https://images.weserv.nl/?url=i.pinimg.com/736x/6a/72/4b/6a724b9501764fd83a4abcd37b58144d.jpg" alt="Official Watermark" crossOrigin="anonymous">
+            </div>
+
+            <!-- Details Section (With enlarged text classes) -->
+            <div class="details-column">
+              <div class="identity-card-title-badge">IDENTITY CARD</div>
+              <div class="details-grid">
+                <div class="details-label">NAME</div>
+                <div class="details-colon">:</div>
+                <div class="details-value" id="preview-name"></div>
+
+                <div class="details-label">DESIG.</div>
+                <div class="details-colon">:</div>
+                <div class="details-value" id="preview-desig"></div>
+
+                <div class="details-label">ID NO.</div>
+                <div class="details-colon">:</div>
+                <div class="details-value" id="preview-card-no" style="font-weight: 700; font-family: 'Roboto Mono', monospace;"></div>
+
+                <div class="details-label">AADHAR</div>
+                <div class="details-colon">:</div>
+                <div class="details-value" id="preview-aadhar"></div>
+
+                <div class="details-label">PHONE</div>
+                <div class="details-colon">:</div>
+                <div class="details-value" id="preview-phone"></div>
+
+                <div class="details-label" style="text-transform: none; font-weight: 800;">Issue Date.</div>
+                <div class="details-colon">:</div>
+                <div class="details-value issue-date-val" id="preview-dates"></div>
+              </div>
+              
+              <!-- Authority Signature Block -->
+              <div class="signature-area" id="signature-block">
+                <div class="signature-font" id="preview-signature">Station Superintendent</div>
+                <div class="signature-line"></div>
+                <div class="signature-title">Issuing Authority Sign</div>
+              </div>
+            </div>
+
+            <!-- Photo Column -->
+            <div class="photo-qr-column">
+              <!-- Photo Frame -->
+              <div class="photo-frame" id="photo-frame-element">
+                <!-- Initial Placeholder -->
+                <div class="no-photo-placeholder" id="photo-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>Upload</span>
+                </div>
+                <!-- Image Tag -->
+                <img id="photo-img" class="uploaded-photo-preview" style="display: none;" alt="Cardholder Photo">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Card Footer -->
+          <div class="card-footer"></div>
+
+        </div>
+
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="preview-controls">
+        <button class="btn btn-secondary" id="btn-print-card">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print ID Card
+        </button>
+        <button class="btn btn-primary" id="btn-download-jpg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download JPG (HD)
+        </button>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast" id="toast-message">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-text">Success! Profile saved.</span>
+  </div>
+
+  <!-- App Execution Logic -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Theme Preset Values
+      const themes = {
+        navy: {
+          '--card-primary': '#0b1a30',
+          '--card-primary-gradient': 'linear-gradient(135deg, #0b1a30 0%, #050d18 100%)',
+          '--card-secondary': '#1d3557',
+          '--card-accent-badge': '#ff3b30',
+          '--card-text-main': '#0b3fa9',
+          '--card-border-photo': '#0056b3',
+          '--card-badge-bg': '#c9daf8',
+          '--card-badge-text': '#0f46a0',
+          '--card-badge-border': '#3d85c6',
+          '--glow-color': 'rgba(59, 130, 246, 0.28)',
+          '--card-strip-bg': '#ff6b6b' // Light Red
+        },
+        gold: {
+          '--card-primary': '#1c1917',
+          '--card-primary-gradient': 'linear-gradient(135deg, #2e2a24 0%, #100f0d 100%)',
+          '--card-secondary': '#d4af37',
+          '--card-accent-badge': '#c5a02b',
+          '--card-text-main': '#8a6d1c',
+          '--card-border-photo': '#d4af37',
+          '--card-badge-bg': '#fef3c7',
+          '--card-badge-text': '#78350f',
+          '--card-badge-border': '#f59e0b',
+          '--glow-color': 'rgba(212, 175, 55, 0.22)',
+          '--card-strip-bg': '#f5c542'
+        },
+        emerald: {
+          '--card-primary': '#064e3b',
+          '--card-primary-gradient': 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+          '--card-secondary': '#059669',
+          '--card-accent-badge': '#d97706',
+          '--card-text-main': '#047857',
+          '--card-border-photo': '#10b981',
+          '--card-badge-bg': '#d1fae5',
+          '--card-badge-text': '#065f46',
+          '--card-badge-border': '#34d399',
+          '--glow-color': 'rgba(16, 185, 129, 0.25)',
+          '--card-strip-bg': '#34d399'
         }
+      };
 
-        function stop() {
-            codeReader.reset();
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
+      // DOM Elements - Form Controls
+      const themeButtons = document.querySelectorAll('.theme-btn');
+      const inputMainTitle = document.getElementById('input-main-title');
+      const inputOrgTitle = document.getElementById('input-org-title');
+      const fontStyleButtons = document.querySelectorAll('.font-style-btn');
+      const inputOrgColor = document.getElementById('input-org-color');
+      const inputOrgUnderline = document.getElementById('input-org-underline');
+      const inputLogoFile = document.getElementById('input-logo-file');
+      
+      const inputStation = document.getElementById('input-station');
+      const inputName = document.getElementById('input-name');
+      const inputDesig = document.getElementById('input-desig');
+      const inputCardNo = document.getElementById('input-card-no');
+      const inputAadhar = document.getElementById('input-aadhar');
+      const inputPhone = document.getElementById('input-phone');
+      const inputDates = document.getElementById('input-dates');
+      const inputSignText = document.getElementById('input-sign-text');
+      
+      const inputPhoto = document.getElementById('input-photo');
+      const imageSliders = document.getElementById('image-sliders');
+      const sliderZoom = document.getElementById('slider-zoom');
+      const sliderPanX = document.getElementById('slider-pan-x');
+      const sliderPanY = document.getElementById('slider-pan-y');
+      
+      const btnSaveProfile = document.getElementById('btn-save-profile');
+      const savedProfilesContainer = document.getElementById('saved-profiles-container');
+      
+      const btnPrintCard = document.getElementById('btn-print-card');
+      const btnDownloadJpg = document.getElementById('btn-download-jpg');
+      const toastMessage = document.getElementById('toast-message');
+      const toastText = document.getElementById('toast-text');
+
+      const switchTilt = document.getElementById('switch-tilt');
+      const switchGlow = document.getElementById('switch-glow');
+
+      // DOM Elements - Preview Card
+      const logoImg = document.getElementById('logo-img');
+      const watermarkImg = document.getElementById('watermark-img');
+      const previewMainTitle = document.getElementById('preview-main-title');
+      const previewOrgTitle = document.getElementById('preview-org-title');
+      const previewStation = document.getElementById('preview-station');
+      const previewName = document.getElementById('preview-name');
+      const previewDesig = document.getElementById('preview-desig');
+      const previewCardNo = document.getElementById('preview-card-no');
+      const previewAadhar = document.getElementById('preview-aadhar');
+      const previewPhone = document.getElementById('preview-phone');
+      const previewDates = document.getElementById('preview-dates');
+      const previewSignature = document.getElementById('preview-signature');
+      const signatureBlock = document.getElementById('signature-block');
+      const photoImg = document.getElementById('photo-img');
+      const photoPlaceholder = document.getElementById('photo-placeholder');
+      const photoFrame = document.getElementById('photo-frame-element');
+      const idCardElement = document.getElementById('id-card-element');
+      const qrCanvas = document.getElementById('qr-canvas');
+      const cardHoverZone = document.getElementById('card-hover-zone');
+
+      // State
+      let activeThemeName = 'navy';
+      let currentPhotoSrc = null;
+      let currentLogoSrc = 'https://images.weserv.nl/?url=i.pinimg.com/736x/6a/72/4b/6a724b9501764fd83a4abcd37b58144d.jpg';
+      let photoSettings = { zoom: 1.0, panX: 0, panY: 0 };
+      let isDraggingPhoto = false;
+      let dragStart = { x: 0, y: 0 };
+      let dragOffsetStart = { x: 0, y: 0 };
+      let qrGenerator = null;
+
+      // --- Theme Changer Logic ---
+      const applyTheme = (themeName) => {
+        const themeVars = themes[themeName];
+        if (!themeVars) return;
+        
+        activeThemeName = themeName;
+        Object.entries(themeVars).forEach(([property, value]) => {
+          idCardElement.style.setProperty(property, value);
+        });
+
+        themeButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (btn.getAttribute('data-theme') === themeName) {
+            btn.classList.add('active');
+          }
+        });
+      };
+
+      themeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const selectedTheme = btn.getAttribute('data-theme');
+          applyTheme(selectedTheme);
+          showToast(`Theme switched to: ${btn.textContent.trim()}`);
+        });
+      });
+
+      // --- Interactive Effects (Tilt & Glow) ---
+      switchGlow.addEventListener('change', () => {
+        if (switchGlow.checked) {
+          idCardElement.classList.add('glow-effect');
+        } else {
+          idCardElement.classList.remove('glow-effect');
         }
+      });
 
-        async function downloadExcel() {
-            if (dataStore.length === 0) return;
-            const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet("Scans");
+      cardHoverZone.addEventListener('mousemove', (e) => {
+        if (!switchTilt.checked) return;
+        
+        const cardRect = idCardElement.getBoundingClientRect();
+        
+        const cardWidth = cardRect.width;
+        const cardHeight = cardRect.height;
+        const centerX = cardRect.left + cardWidth / 2;
+        const centerY = cardRect.top + cardHeight / 2;
+        
+        const mouseX = e.clientX - centerX;
+        const mouseY = e.clientY - centerY;
+        
+        const rotateX = -(mouseY / (cardHeight / 2)) * 12;
+        const rotateY = (mouseX / (cardWidth / 2)) * 12;
+        
+        idCardElement.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.03)`;
+        
+        const shinePercentX = ((e.clientX - cardRect.left) / cardWidth) * 100;
+        const shinePercentY = ((e.clientY - cardRect.top) / cardHeight) * 100;
+        
+        const glossOverlay = document.querySelector('.card-gloss-overlay');
+        glossOverlay.style.background = `radial-gradient(circle at ${shinePercentX}% ${shinePercentY}%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 65%)`;
+      });
 
-            ws.columns = [
-                { header: "SNo", key: "sno", width: 8 },
-                { header: "Barcode Value", key: "val", width: 25 },
-                { header: "Photo", width: 25 },
-                { header: "Barcode Gen", width: 25 }
-            ];
+      cardHoverZone.addEventListener('mouseleave', () => {
+        idCardElement.style.transform = 'rotateX(0deg) rotateY(0deg) scale(1)';
+        const glossOverlay = document.querySelector('.card-gloss-overlay');
+        glossOverlay.style.background = `linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 60%)`;
+      });
 
-            for (const [i, item] of dataStore.entries()) {
-                const row = ws.addRow({ sno: item.sno, val: item.val });
-                row.height = 70;
-                
-                const cropId = wb.addImage({ base64: item.crop, extension: 'jpeg' });
-                const barId = wb.addImage({ base64: item.bar, extension: 'png' });
+      // --- Dynamic QR Code Generator ---
+      const updateQrCode = () => {
+        const payload = [
+          `ORG: ${inputOrgTitle.value}`,
+          `STN: ${inputStation.value || '[BLANK]'}`,
+          `NAME: ${inputName.value || '[BLANK]'}`,
+          `DESIG: ${inputDesig.value || '[BLANK]'}`,
+          `ID: ${inputCardNo.value || '[BLANK]'}`,
+          `AADHAR: ${inputAadhar.value || '[BLANK]'}`,
+          `PHONE: ${inputPhone.value || '[BLANK]'}`,
+          `VALIDITY: ${inputDates.value || '[BLANK]'}`,
+          `SIGN: ${inputSignText.value || '[BLANK]'}`
+        ].join('\n');
 
-                ws.addImage(cropId, { tl: { col: 2, row: i + 1 }, ext: { width: 140, height: 60 } });
-                ws.addImage(barId, { tl: { col: 3, row: row.number - 1 }, ext: { width: 140, height: 60 } });
+        if (!qrGenerator) {
+          qrGenerator = new QRious({
+            element: qrCanvas,
+            value: payload,
+            size: 140,
+            level: 'M',
+            backgroundAlpha: 0,
+            foreground: '#081121'
+          });
+        } else {
+          qrGenerator.value = payload;
+        }
+      };
+
+      // --- Real-time Text Synchronization & QR update ---
+      const syncTextAndQr = (input, preview) => {
+        input.addEventListener('input', () => {
+          preview.textContent = input.value;
+          updateQrCode();
+          
+          if (input === inputStation) {
+            if (input.value.trim() === '') {
+              previewStation.style.display = 'none';
+            } else {
+              previewStation.style.display = 'inline-block';
             }
+          }
+          
+          if (input === inputSignText) {
+            if (input.value.trim() === '') {
+              signatureBlock.style.display = 'none';
+            } else {
+              signatureBlock.style.display = 'flex';
+            }
+          }
+        });
+      };
 
-            const buffer = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), "Scan_Report.xlsx");
+      syncTextAndQr(inputMainTitle, previewMainTitle);
+      syncTextAndQr(inputOrgTitle, previewOrgTitle);
+      syncTextAndQr(inputStation, previewStation);
+      syncTextAndQr(inputName, previewName);
+      syncTextAndQr(inputDesig, previewDesig);
+      syncTextAndQr(inputCardNo, previewCardNo);
+      syncTextAndQr(inputPhone, previewPhone);
+      syncTextAndQr(inputDates, previewDates);
+      syncTextAndQr(inputSignText, previewSignature);
+
+      // --- Custom Auto-Formatting Aadhar Number ---
+      inputAadhar.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length > 12) value = value.slice(0, 12);
+        
+        let formatted = '';
+        for (let i = 0; i < value.length; i++) {
+          if (i > 0 && i % 4 === 0) formatted += ' ';
+          formatted += value[i];
+        }
+        
+        inputAadhar.value = formatted;
+        previewAadhar.textContent = formatted;
+        updateQrCode();
+      });
+
+      // --- Organization Name Styling ---
+      fontStyleButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          fontStyleButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          previewOrgTitle.classList.remove('font-cinzel', 'font-playfair', 'font-outfit', 'font-inter', 'font-greatvibes', 'font-montserrat');
+          
+          const selectedFont = btn.getAttribute('data-font');
+          previewOrgTitle.classList.add(selectedFont);
+          showToast('Typography style updated!');
+        });
+      });
+
+      inputOrgUnderline.addEventListener('change', () => {
+        previewOrgTitle.style.textDecoration = inputOrgUnderline.checked ? 'underline' : 'none';
+      });
+
+      inputOrgColor.addEventListener('input', () => {
+        previewOrgTitle.style.color = inputOrgColor.value;
+      });
+
+      // Custom Logo File Upload
+      inputLogoFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            currentLogoSrc = event.target.result;
+            logoImg.src = currentLogoSrc;
+            watermarkImg.src = currentLogoSrc;
+            showToast('Custom Logo uploaded successfully!');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // --- Photo Upload, Zoom & Panning ---
+      const applyPhotoTransform = () => {
+        if (photoImg) {
+          photoImg.style.transform = `scale(${photoSettings.zoom}) translate(${photoSettings.panX}px, ${photoSettings.panY}px)`;
+        }
+      };
+
+      inputPhoto.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            currentPhotoSrc = event.target.result;
+            photoImg.src = currentPhotoSrc;
+            photoImg.style.display = 'block';
+            photoPlaceholder.style.display = 'none';
+            imageSliders.style.display = 'flex';
+            
+            photoSettings = { zoom: 1.0, panX: 0, panY: 0 };
+            sliderZoom.value = 1.0;
+            sliderPanX.value = 0;
+            sliderPanY.value = 0;
+            applyPhotoTransform();
+            
+            showToast('Photo uploaded successfully!');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      sliderZoom.addEventListener('input', () => {
+        photoSettings.zoom = parseFloat(sliderZoom.value);
+        applyPhotoTransform();
+      });
+
+      sliderPanX.addEventListener('input', () => {
+        photoSettings.panX = parseInt(sliderPanX.value);
+        applyPhotoTransform();
+      });
+
+      sliderPanY.addEventListener('input', () => {
+        photoSettings.panY = parseInt(sliderPanY.value);
+        applyPhotoTransform();
+      });
+
+      // Drag-to-Pan Feature on Card Image Frame
+      photoFrame.addEventListener('mousedown', (e) => {
+        if (!currentPhotoSrc) return;
+        isDraggingPhoto = true;
+        photoFrame.style.cursor = 'grabbing';
+        dragStart = { x: e.clientX, y: e.clientY };
+        dragOffsetStart = { x: photoSettings.panX, y: photoSettings.panY };
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingPhoto) return;
+        const deltaX = e.clientX - dragStart.x;
+        const deltaY = e.clientY - dragStart.y;
+        
+        const sensitivity = 1.2 / photoSettings.zoom;
+        let newPanX = Math.round(dragOffsetStart.x + deltaX * sensitivity);
+        let newPanY = Math.round(dragOffsetStart.y + deltaY * sensitivity);
+        
+        newPanX = Math.max(-100, Math.min(100, newPanX));
+        newPanY = Math.max(-100, Math.min(100, newPanY));
+        
+        photoSettings.panX = newPanX;
+        photoSettings.panY = newPanY;
+        
+        sliderPanX.value = newPanX;
+        sliderPanY.value = newPanY;
+        applyPhotoTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDraggingPhoto) {
+          isDraggingPhoto = false;
+          photoFrame.style.cursor = '';
+        }
+      });
+
+      // --- Toast Notification helper ---
+      const showToast = (message, type = 'success') => {
+        toastText.textContent = message;
+        if (type === 'error') {
+          toastMessage.style.backgroundColor = '#ef4444';
+        } else if (type === 'info') {
+          toastMessage.style.backgroundColor = '#2563eb';
+        } else {
+          toastMessage.style.backgroundColor = '#10b981';
+        }
+        toastMessage.classList.add('show');
+        
+        setTimeout(() => {
+          toastMessage.classList.remove('show');
+        }, 3000);
+      };
+
+      // --- LocalStorage Profile Management ---
+      const saveProfile = () => {
+        const name = inputName.value.trim();
+        if (!name) {
+          showToast('Please enter a name before saving.', 'error');
+          return;
         }
 
-        startBtn.onclick = start;
-        stopBtn.onclick = stop;
-        excelBtn.onclick = downloadExcel;
-    </script>
+        let activeFont = 'font-playfair';
+        fontStyleButtons.forEach(btn => {
+          if (btn.classList.contains('active')) {
+            activeFont = btn.getAttribute('data-font');
+          }
+        });
+
+        const profileData = {
+          theme: activeThemeName,
+          mainTitle: inputMainTitle.value,
+          orgTitle: inputOrgTitle.value,
+          activeFont: activeFont,
+          orgColor: inputOrgColor.value,
+          orgUnderline: inputOrgUnderline.checked,
+          logoSrc: currentLogoSrc,
+          station: inputStation.value,
+          name: name,
+          desig: inputDesig.value,
+          cardNo: inputCardNo.value,
+          aadhar: inputAadhar.value,
+          phone: inputPhone.value,
+          dates: inputDates.value,
+          signText: inputSignText.value,
+          photo: currentPhotoSrc,
+          photoSettings: photoSettings,
+          effects: {
+            tilt: switchTilt.checked,
+            glow: switchGlow.checked
+          }
+        };
+
+        let savedProfiles = JSON.parse(localStorage.getItem('rail_id_profiles')) || {};
+        savedProfiles[name] = profileData;
+        localStorage.setItem('rail_id_profiles', JSON.stringify(savedProfiles));
+        
+        renderSavedProfiles();
+        showToast(`Profile "${name}" saved!`);
+      };
+
+      const renderSavedProfiles = () => {
+        const savedProfiles = JSON.parse(localStorage.getItem('rail_id_profiles')) || {};
+        savedProfilesContainer.innerHTML = '';
+        
+        const keys = Object.keys(savedProfiles);
+        if (keys.length === 0) {
+          savedProfilesContainer.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-secondary); text-align: center; padding: 1rem 0;">No profiles saved yet.</div>';
+          return;
+        }
+        
+        keys.forEach(key => {
+          const item = document.createElement('div');
+          item.className = 'profile-item';
+          
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'profile-item-name';
+          nameSpan.textContent = key;
+          nameSpan.addEventListener('click', () => loadProfile(key));
+          
+          const deleteIcon = document.createElement('span');
+          deleteIcon.className = 'profile-item-delete';
+          deleteIcon.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>`;
+          deleteIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteProfile(key);
+          });
+          
+          item.appendChild(nameSpan);
+          item.appendChild(deleteIcon);
+          savedProfilesContainer.appendChild(item);
+        });
+      };
+
+      const loadProfile = (name) => {
+        const savedProfiles = JSON.parse(localStorage.getItem('rail_id_profiles')) || {};
+        const profile = savedProfiles[name];
+        if (!profile) return;
+
+        if (profile.theme) {
+          applyTheme(profile.theme);
+        }
+
+        if (profile.effects) {
+          switchTilt.checked = profile.effects.tilt !== false;
+          switchGlow.checked = profile.effects.glow === true;
+          
+          if (switchGlow.checked) {
+            idCardElement.classList.add('glow-effect');
+          } else {
+            idCardElement.classList.remove('glow-effect');
+          }
+        }
+
+        inputMainTitle.value = profile.mainTitle || 'INDIAN RAILWAY';
+        previewMainTitle.textContent = inputMainTitle.value;
+
+        inputOrgTitle.value = profile.orgTitle || 'Chandu Sanitation Workers Welfare Assosiation';
+        previewOrgTitle.textContent = inputOrgTitle.value;
+
+        fontStyleButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (btn.getAttribute('data-font') === profile.activeFont) {
+            btn.classList.add('active');
+          }
+        });
+        previewOrgTitle.classList.remove('font-cinzel', 'font-playfair', 'font-outfit', 'font-inter', 'font-greatvibes', 'font-montserrat');
+        previewOrgTitle.classList.add(profile.activeFont || 'font-playfair');
+
+        inputOrgColor.value = profile.orgColor || '#e63946';
+        previewOrgTitle.style.color = inputOrgColor.value;
+
+        inputOrgUnderline.checked = profile.orgUnderline !== false;
+        previewOrgTitle.style.textDecoration = inputOrgUnderline.checked ? 'underline' : 'none';
+
+        if (profile.logoSrc) {
+          currentLogoSrc = profile.logoSrc;
+          logoImg.src = currentLogoSrc;
+          watermarkImg.src = currentLogoSrc;
+        }
+
+        inputStation.value = profile.station || '';
+        previewStation.textContent = inputStation.value;
+        if (inputStation.value.trim() === '') {
+          previewStation.style.display = 'none';
+        } else {
+          previewStation.style.display = 'inline-block';
+        }
+
+        inputName.value = profile.name || '';
+        previewName.textContent = inputName.value;
+
+        inputDesig.value = profile.desig || '';
+        previewDesig.textContent = inputDesig.value;
+
+        inputCardNo.value = profile.cardNo || '';
+        previewCardNo.textContent = inputCardNo.value;
+
+        inputAadhar.value = profile.aadhar || '';
+        previewAadhar.textContent = inputAadhar.value;
+
+        inputPhone.value = profile.phone || '';
+        previewPhone.textContent = inputPhone.value;
+
+        inputDates.value = profile.dates || '';
+        previewDates.textContent = inputDates.value;
+
+        inputSignText.value = profile.signText || '';
+        previewSignature.textContent = inputSignText.value;
+        if (inputSignText.value.trim() === '') {
+          signatureBlock.style.display = 'none';
+        } else {
+          signatureBlock.style.display = 'flex';
+        }
+
+        if (profile.photo) {
+          currentPhotoSrc = profile.photo;
+          photoImg.src = currentPhotoSrc;
+          photoImg.style.display = 'block';
+          photoPlaceholder.style.display = 'none';
+          imageSliders.style.display = 'flex';
+          
+          photoSettings = profile.photoSettings || { zoom: 1.0, panX: 0, panY: 0 };
+          sliderZoom.value = photoSettings.zoom;
+          sliderPanX.value = photoSettings.panX;
+          sliderPanY.value = photoSettings.panY;
+          applyPhotoTransform();
+        } else {
+          currentPhotoSrc = null;
+          photoImg.style.display = 'none';
+          photoPlaceholder.style.display = 'flex';
+          imageSliders.style.display = 'none';
+        }
+
+        updateQrCode();
+        showToast(`Loaded profile: ${name}`);
+      };
+
+      const deleteProfile = (name) => {
+        let savedProfiles = JSON.parse(localStorage.getItem('rail_id_profiles')) || {};
+        if (savedProfiles[name]) {
+          delete savedProfiles[name];
+          localStorage.setItem('rail_id_profiles', JSON.stringify(savedProfiles));
+          renderSavedProfiles();
+          showToast(`Deleted profile: ${name}`);
+        }
+      };
+
+      btnSaveProfile.addEventListener('click', saveProfile);
+      renderSavedProfiles();
+
+      // --- Card Export Systems (Print & JPG Download) ---
+      btnPrintCard.addEventListener('click', () => {
+        window.print();
+      });
+
+      btnDownloadJpg.addEventListener('click', () => {
+        showToast('Generating HD Aadhar card-sized JPG...', 'info');
+
+        const originalTransform = idCardElement.style.transform;
+        idCardElement.style.transform = 'none';
+
+        setTimeout(() => {
+          html2canvas(idCardElement, {
+            scale: 4,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false
+          }).then(canvas => {
+            idCardElement.style.transform = originalTransform;
+
+            const link = document.createElement('a');
+            const namePart = inputName.value.trim() !== '' ? inputName.value.replace(/\s+/g, '_') : 'Blank';
+            const filename = `${namePart}_AadharSize_ID_Card.jpg`;
+            link.download = filename;
+            link.href = canvas.toDataURL('image/jpeg', 1.0);
+            link.click();
+            showToast('JPG Download started!');
+          }).catch(err => {
+            console.error('Error generating card image:', err);
+            idCardElement.style.transform = originalTransform;
+            showToast('Error exporting card. If logo is missing, please upload logo file directly.', 'error');
+          });
+        }, 150);
+      });
+
+      // Pre-load default values for preview display
+      previewMainTitle.textContent = inputMainTitle.value;
+      previewOrgTitle.textContent = inputOrgTitle.value;
+      previewStation.textContent = inputStation.value;
+      previewName.textContent = inputName.value;
+      previewDesig.textContent = inputDesig.value;
+      previewCardNo.textContent = inputCardNo.value;
+      previewAadhar.textContent = inputAadhar.value;
+      previewPhone.textContent = inputPhone.value;
+      previewDates.textContent = inputDates.value;
+      previewSignature.textContent = inputSignText.value;
+      
+      applyTheme('navy');
+      updateQrCode();
+    });
+  </script>
 </body>
 </html>
